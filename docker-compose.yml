@@ -25,6 +25,7 @@ services:
       QLEVER_SPARQL_URL: http://qlever:7001/sparql
       QLEVER_UPDATE_URL: http://qlever:7001/update
       SHEX_FILES_DIR: /shex-files
+      QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-very_secure_token}
     volumes:
       - ./sparql/files:/shex-files:ro
     depends_on:
@@ -65,7 +66,8 @@ services:
       "--description", "ShExMap Repository",
       "--port", "7001",
       "--system", "native",
-      "--run-in-foreground"
+      "--run-in-foreground",
+      "--access-token", "${QLEVER_ACCESS_TOKEN:-very_secure_token}"
     ]
     volumes:
       - qlever-data:/data          # index built by qlever-init
