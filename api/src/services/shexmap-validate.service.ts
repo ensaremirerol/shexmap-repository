@@ -144,7 +144,9 @@ function walkShape(
   const decl = (schema.shapes as any[] ?? []).find((s: any) => s.id === shapeId);
   if (!decl) return node;
 
-  walkExpr(decl.shapeExpr ?? decl, focusNode, schema, store, prefixes, node, visited);
+  // Each Shape scope gets a fresh claimed set so sibling triple constraints
+  // don't steal each other's blank node objects (e.g. two fhir:component refs).
+  walkExpr(decl.shapeExpr ?? decl, focusNode, schema, store, prefixes, node, visited, new Set());
   return node;
 }
 
@@ -156,28 +158,31 @@ function walkExpr(
   prefixes: Record<string, string>,
   node: BindingNode,
   visited: Set<string>,
+  claimed: Set<string>,   // blank-node childFocus values already taken by sibling constraints
 ): void {
   if (!expr) return;
   switch (expr.type) {
     case 'ShapeDecl':
-      walkExpr(expr.shapeExpr, focus, schema, store, prefixes, node, visited);
+      walkExpr(expr.shapeExpr, focus, schema, store, prefixes, node, visited, claimed);
       break;
     case 'Shape':
-      walkExpr(expr.expression, focus, schema, store, prefixes, node, visited);
+      // New Shape scope → fresh claimed set
+      walkExpr(expr.expression, focus, schema, store, prefixes, node, visited, new Set());
       break;
     case 'EachOf':
     case 'OneOf':
+      // Share the same claimed set across all sibling expressions
       for (const e of expr.expressions ?? []) {
-        walkExpr(e, focus, schema, store, prefixes, node, visited);
+        walkExpr(e, focus, schema, store, prefixes, node, visited, claimed);
       }
       break;
     case 'TripleConstraint':
-      walkTriple(expr, focus, schema, store, prefixes, node, visited);
+      walkTriple(expr, focus, schema, store, prefixes, node, visited, claimed);
       break;
     default:
-      if (expr.expression) walkExpr(expr.expression, focus, schema, store, prefixes, node, visited);
+      if (expr.expression) walkExpr(expr.expression, focus, schema, store, prefixes, node, visited, claimed);
       for (const e of (expr.expressions ?? []) as any[]) {
-        walkExpr(e, focus, schema, store, prefixes, node, visited);
+        walkExpr(e, focus, schema, store, prefixes, node, visited, claimed);
       }
   }
 }
@@ -190,14 +195,20 @@ function walkTriple(
   prefixes: Record<string, string>,
   node: BindingNode,
   visited: Set<string>,
+  claimed: Set<string>,
 ): void {
   const quads = store.getQuads(focusTerm(focus), DataFactory.namedNode(tc.predicate), null, null);
   const mapInfo = getMapInfo(tc.semActs, prefixes);
+  const refId = shapeRefId(tc.valueExpr);
+  const ve = tc.valueExpr as any;
+  const isInlineShape = ve && typeof ve === 'object' && ['Shape', 'EachOf', 'OneOf'].includes(ve.type);
 
   for (const quad of quads) {
     const obj = quad.object;
-    // Encode blank node object IRIs so recursive lookups use blankNode(), not namedNode()
     const childFocus = obj.termType === 'BlankNode' ? `_:${obj.value}` : obj.value;
+
+    // For shape references, skip blank nodes already claimed by a sibling constraint
+    if ((refId || isInlineShape) && obj.termType === 'BlankNode' && claimed.has(childFocus)) continue;
 
     // Record binding(s) if there's a Map annotation on this triple constraint
     if (mapInfo?.type === 'var') {
@@ -207,8 +218,7 @@ function walkTriple(
         datatype: obj.termType === 'Literal' ? (obj as any).datatype?.value : undefined,
       });
     } else if (mapInfo?.type === 'regex' && obj.termType === 'Literal') {
-      // JS named capture groups don't allow ':' in names, so we sanitize them
-      // before building the RegExp and map back to the original names afterwards.
+      // JS named capture groups don't allow ':' in names — sanitize and map back
       try {
         const nameMap = new Map<string, string>(); // sanitized → original
         const sanitizedBody = mapInfo.body.replace(
@@ -234,17 +244,19 @@ function walkTriple(
 
     if (obj.termType === 'Literal') continue;
 
-    // Shape reference → recurse into named shape
-    const refId = shapeRefId(tc.valueExpr);
+    // Shape reference → claim the first unclaimed blank node and stop.
+    // Only one match per constraint is needed; claiming prevents sibling
+    // constraints with the same predicate from stealing this node.
     if (refId) {
+      if (obj.termType === 'BlankNode') claimed.add(childFocus);
       const child = walkShape(refId, childFocus, schema, store, prefixes, visited);
       if (child.bindings.length > 0 || child.children.length > 0) node.children.push(child);
-      continue;
+      break; // one node per shape-reference constraint
     }
 
-    // Inline shape expression → recurse with a synthetic child node
-    const ve = tc.valueExpr as any;
-    if (ve && typeof ve === 'object' && ['Shape', 'EachOf', 'OneOf'].includes(ve.type)) {
+    // Inline shape expression — same single-match semantics
+    if (isInlineShape) {
+      if (obj.termType === 'BlankNode') claimed.add(childFocus);
       const predLocal = (tc.predicate as string).split(/[/#]/).pop() ?? tc.predicate;
       const inner: BindingNode = {
         shape: `(@ ${predLocal})`,
@@ -252,8 +264,9 @@ function walkTriple(
         bindings: [],
         children: [],
       };
-      walkExpr(ve, childFocus, schema, store, prefixes, inner, visited);
+      walkExpr(ve, childFocus, schema, store, prefixes, inner, visited, new Set());
       if (inner.bindings.length > 0 || inner.children.length > 0) node.children.push(inner);
+      break; // one node per inline-shape constraint
     }
   }
 }
