@@ -10,37 +10,15 @@ PREFIX xsd:     <http://www.w3.org/2001/XMLSchema#>
 
 const EXAMPLES: { label: string; description: string; query: string }[] = [
   {
-    label: 'Schemas & ShExMaps',
-    description: 'List every schema together with the ShExMap files that annotate it.',
+    label: 'ShExMaps',
+    description: 'A listing of the ShExMaps.',
     query:
       PREFIXES +
-      `SELECT ?schema ?schemaTitle ?map ?mapTitle WHERE {
-  ?schema a shexmap:ShExSchema ;
-          dct:title ?schemaTitle .
-  ?map    a shexmap:ShExMap ;
-          dct:title ?mapTitle ;
-          shexmap:hasSchema ?schema .
-}
-ORDER BY ?schemaTitle ?mapTitle`,
-  },
-  {
-    label: 'ShExMaps & their Schemas + Pairings',
-    description: 'For each ShExMap, show the schema it belongs to and any pairings it appears in.',
-    query:
-      PREFIXES +
-      `SELECT ?map ?mapTitle ?schemaTitle ?pairing ?pairingTitle WHERE {
-  ?map a shexmap:ShExMap ;
+      `SELECT ?map ?mapTitle 
+{
+      ?map a shexmap:ShExMap ;
        dct:title ?mapTitle .
-  OPTIONAL {
-    ?map shexmap:hasSchema ?schema .
-    ?schema dct:title ?schemaTitle .
-  }
-  OPTIONAL {
-    { ?pairing shexmap:sourceMap ?map }
-    UNION
-    { ?pairing shexmap:targetMap ?map }
-    ?pairing dct:title ?pairingTitle .
-  }
+
 }
 ORDER BY ?mapTitle`,
   },
