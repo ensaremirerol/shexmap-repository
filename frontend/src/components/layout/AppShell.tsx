@@ -9,11 +9,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="border-t border-slate-200 bg-white py-5 text-center text-sm text-slate-400">
-        ShExMap Repository — powered by{' '}
+        ShExMap Repository <br />
+        Conceived by <a href="https://github.com/micheldumontier/" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">Michel Dumontier</a>.
+        Built with <a href="https://code.claude.com/docs/en/overview" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">Claude Code</a>.
+        Powered by{' '}
         <a href="http://shex.io" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">
           ShEx
         </a>{' '}
-        &amp; QLever
+        &amp; <a href="https://github.com/ad-freiburg/qlever" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">QLever</a>
+        <br/>
+        Source code at <a href="https://github.com/micheldumontier/shexmap-repository" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">GitHub</a>.
       </footer>
     </div>
   );

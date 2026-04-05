@@ -56,22 +56,29 @@ export async function listShExMaps(
   `;
 
   const rows = await sparqlSelect(fastify, sparql);
-  const items: ShExMap[] = rows.map((r) => ({
-    id: extractLocalId(r['id']?.value ?? ''),
-    title: r['title']?.value ?? '',
-    description: r['description']?.value,
-    fileName: r['fileName']?.value,
-    fileFormat: r['fileFormat']?.value ?? 'shexc',
-    sourceUrl: r['sourceUrl']?.value,
-    schemaUrl: r['schemaUrl']?.value,
-    tags: [],
-    version: r['version']?.value ?? '1.0.0',
-    authorId: extractLocalId(r['authorId']?.value ?? ''),
-    authorName: r['authorName']?.value ?? 'Unknown',
-    createdAt: r['createdAt']?.value ?? '',
-    modifiedAt: r['modifiedAt']?.value ?? '',
-    stars: parseInt(r['stars']?.value ?? '0', 10),
-  }));
+  const seen = new Set<string>();
+  const items: ShExMap[] = [];
+  for (const r of rows) {
+    const id = extractLocalId(r['id']?.value ?? '');
+    if (seen.has(id)) continue;
+    seen.add(id);
+    items.push({
+      id,
+      title: r['title']?.value ?? '',
+      description: r['description']?.value,
+      fileName: r['fileName']?.value,
+      fileFormat: r['fileFormat']?.value ?? 'shexc',
+      sourceUrl: r['sourceUrl']?.value,
+      schemaUrl: r['schemaUrl']?.value,
+      tags: [],
+      version: r['version']?.value ?? '1.0.0',
+      authorId: extractLocalId(r['authorId']?.value ?? ''),
+      authorName: r['authorName']?.value ?? 'Unknown',
+      createdAt: r['createdAt']?.value ?? '',
+      modifiedAt: r['modifiedAt']?.value ?? '',
+      stars: parseInt(r['stars']?.value ?? '0', 10),
+    });
+  }
 
   return { items, total: items.length };
 }
@@ -276,21 +283,28 @@ export async function listShExMapPairings(
   `;
 
   const rows = await sparqlSelect(fastify, sparql);
-  const items: ShExMapPairing[] = rows.map((r) => ({
-    id: extractLocalId(r['id']?.value ?? ''),
-    title: r['title']?.value ?? '',
-    description: r['description']?.value,
-    sourceMap: rowToShExMap(r, 'src'),
-    targetMap: rowToShExMap(r, 'tgt'),
-    tags: [],
-    license: r['license']?.value,
-    version: r['version']?.value ?? '1.0.0',
-    authorId: extractLocalId(r['authorId']?.value ?? ''),
-    authorName: r['authorName']?.value ?? 'Unknown',
-    createdAt: r['createdAt']?.value ?? '',
-    modifiedAt: r['modifiedAt']?.value ?? '',
-    stars: parseInt(r['stars']?.value ?? '0', 10),
-  }));
+  const seen = new Set<string>();
+  const items: ShExMapPairing[] = [];
+  for (const r of rows) {
+    const id = extractLocalId(r['id']?.value ?? '');
+    if (seen.has(id)) continue;
+    seen.add(id);
+    items.push({
+      id,
+      title: r['title']?.value ?? '',
+      description: r['description']?.value,
+      sourceMap: rowToShExMap(r, 'src'),
+      targetMap: rowToShExMap(r, 'tgt'),
+      tags: [],
+      license: r['license']?.value,
+      version: r['version']?.value ?? '1.0.0',
+      authorId: extractLocalId(r['authorId']?.value ?? ''),
+      authorName: r['authorName']?.value ?? 'Unknown',
+      createdAt: r['createdAt']?.value ?? '',
+      modifiedAt: r['modifiedAt']?.value ?? '',
+      stars: parseInt(r['stars']?.value ?? '0', 10),
+    });
+  }
 
   return { items, total: items.length };
 }

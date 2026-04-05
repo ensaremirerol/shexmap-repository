@@ -4,7 +4,8 @@ import { useShExMaps, useSchemas, useShExMapPairings } from '../api/shexmaps.js'
 export default function HomePage() {
   const { data: maps } = useShExMaps({ limit: 5, sort: 'modified' });
   const { data: schemas } = useSchemas();
-  const { data: pairings } = useShExMapPairings({ limit: 1 });
+  const { data: pairings } = useShExMapPairings({ limit: 5, sort: 'modified' });
+
 
   return (
     <div className="space-y-14">
@@ -20,45 +21,39 @@ export default function HomePage() {
           }}
         />
         <div className="relative">
-          <span className="inline-block mb-4 rounded-full bg-violet-900/60 border border-violet-700/50 px-3 py-1 text-xs font-medium text-violet-300 tracking-wide uppercase">
-            Open ShEx Mapping Repository
-          </span>
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 tracking-tight">
             ShEx<span className="text-violet-400">Map</span> Repository
           </h1>
           <p className="text-slate-400 text-lg max-w-xl mx-auto mb-8 leading-relaxed">
             A community hub for ShExMaps — bidirectional mappings between RDF shapes.
-            Browse, contribute, and explore coverage across semantic web standards.
           </p>
+                    <span className="inline-block mb-4 rounded-full bg-violet-900/60 border border-violet-700/50 px-3 py-1 text-xs font-medium text-violet-300 tracking-wide uppercase">
+            Open Source
+          </span>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link
               to="/browse"
               className="bg-violet-600 hover:bg-violet-500 text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
             >
-              Browse Maps
+              Browse
             </Link>
             <Link
               to="/pairings/create"
               className="bg-violet-800 hover:bg-violet-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
             >
-              Create Pairing
-            </Link>
-            <Link
-              to="/submit"
-              className="border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
-            >
-              Submit a Map
+              Map
             </Link>
           </div>
         </div>
       </section>
 
       {/* Stats */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <section className="grid grid-cols-2 gap-4 max-w-md mx-auto w-full">
         {[
-          { label: 'Schemas', value: schemas?.length, tab: 'schemas' },
-          { label: 'ShExMap Files', value: maps?.total, tab: 'shexmaps' },
+          // { label: 'Schemas', value: schemas?.length, tab: 'schemas' },
           { label: 'Pairings', value: pairings?.total, tab: 'pairings' },
+          { label: 'ShExMap Files', value: maps?.total, tab: 'shexmaps' },
+          
         ].map(({ label, value, tab }) => (
           <Link
             key={label}
@@ -73,7 +68,7 @@ export default function HomePage() {
         ))}
       </section>
 
-      {/* Recent maps */}
+      {/* Recently Updated */}
       <section>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-xl font-semibold text-slate-800">Recently Updated</h2>
@@ -81,24 +76,56 @@ export default function HomePage() {
             View all →
           </Link>
         </div>
-        <div className="space-y-3">
-          {maps?.items.map((map) => (
-            <Link
-              key={map.id}
-              to={`/maps/${map.id}`}
-              className="flex items-center justify-between bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 hover:border-violet-300 hover:shadow-md transition-all group"
-            >
-              <div>
-                <div className="font-semibold text-slate-800 group-hover:text-violet-700 transition-colors">
-                  {map.title}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Pairings column */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Pairings</h3>
+            {pairings?.items.length === 0 && (
+              <p className="text-sm text-slate-400">No pairings yet.</p>
+            )}
+            {pairings?.items.map((p) => (
+              <Link
+                key={p.id}
+                to={`/pairings/create?id=${p.id}`}
+                className="flex items-center justify-between bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 hover:border-blue-300 hover:shadow-md transition-all group"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-800 group-hover:text-blue-700 transition-colors truncate">
+                    {p.title}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    by {p.authorName} · {new Date(p.modifiedAt).toLocaleDateString()}
+                  </div>
                 </div>
-                <div className="text-sm text-slate-400 mt-0.5">
-                  by {map.authorName} · {new Date(map.modifiedAt).toLocaleDateString()}
+                <span className="text-slate-300 group-hover:text-blue-400 text-lg transition-colors shrink-0 ml-3">→</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* ShExMaps column */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">ShExMaps</h3>
+            {maps?.items.length === 0 && (
+              <p className="text-sm text-slate-400">No ShExMaps yet.</p>
+            )}
+            {maps?.items.map((m) => (
+              <Link
+                key={m.id}
+                to={`/maps/${m.id}`}
+                className="flex items-center justify-between bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 hover:border-violet-300 hover:shadow-md transition-all group"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-800 group-hover:text-violet-700 transition-colors truncate">
+                    {m.title}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    by {m.authorName} · {new Date(m.modifiedAt).toLocaleDateString()}
+                  </div>
                 </div>
-              </div>
-              <span className="text-slate-300 group-hover:text-violet-400 text-lg transition-colors">→</span>
-            </Link>
-          ))}
+                <span className="text-slate-300 group-hover:text-violet-400 text-lg transition-colors shrink-0 ml-3">→</span>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
     </div>
