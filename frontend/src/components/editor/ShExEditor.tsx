@@ -137,12 +137,20 @@ export default function ShExEditor({
   // Without this, the programmatic update sets isDirty=true and blocks future external syncs.
   const skipOnChangeRef = useRef(false);
 
-  // Keep localContent in sync when the upstream value prop changes (e.g. data loads)
+  // Keep localContent in sync when the upstream value prop changes (e.g. data loads).
+  // Only set the skip flag when the content actually changes — if value already matches
+  // localContent, setLocalContent is a no-op and Monaco never fires onChange to reset
+  // the flag, leaving it stuck true and silently swallowing the next user paste/edit.
   useEffect(() => {
     if (!isDirty) {
-      skipOnChangeRef.current = true;
-      setLocalContent(value);
+      setLocalContent((prev) => {
+        if (prev === value) return prev; // no change — skip flag not needed
+        skipOnChangeRef.current = true;
+        return value;
+      });
     }
+    // localContent intentionally excluded: we read prev via the updater form instead
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, isDirty]);
 
   // Register ShEx language once Monaco is ready

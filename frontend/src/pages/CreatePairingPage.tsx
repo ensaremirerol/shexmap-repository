@@ -691,7 +691,7 @@ function CreateMapInlineForm({
     if (!title.trim()) { setErr('Title is required.'); return; }
     setErr('');
     try {
-      const content = initialContent.trim() || '# New ShEx schema\n';
+      const content = initialContent.trim() || '';
       const result = await createMap.mutateAsync({
         title: title.trim(),
         description: desc.trim() || undefined,
