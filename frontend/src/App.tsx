@@ -9,6 +9,7 @@ import CoveragePage from './pages/CoveragePage.js';
 import SparqlPage from './pages/SparqlPage.js';
 import DashboardPage from './pages/DashboardPage.js';
 import ValidatePage from './pages/ValidatePage.js';
+import CreatePairingPage from './pages/CreatePairingPage.js';
 import NotFoundPage from './pages/NotFoundPage.js';
 
 export default function App() {
@@ -21,8 +22,9 @@ export default function App() {
         <Route path="/maps/:id" element={<ShExMapPage />} />
         <Route path="/submit" element={<SubmitPage />} />
         <Route path="/coverage" element={<CoveragePage />} />
-        <Route path="/sparql" element={<SparqlPage />} />
+        <Route path="/query" element={<SparqlPage />} />
         <Route path="/validate" element={<ValidatePage />} />
+        <Route path="/pairings/create" element={<CreatePairingPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

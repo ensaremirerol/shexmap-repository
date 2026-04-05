@@ -55,6 +55,54 @@ export interface ShExMap {
   stars: number;
 }
 
+// ─── ShExMap Version ──────────────────────────────────────────────────────────
+
+export const SaveVersionSchema = z.object({
+  content: z.string().min(1),
+  commitMessage: z.string().max(500).optional(),
+});
+
+export type SaveVersion = z.infer<typeof SaveVersionSchema>;
+
+export interface ShExMapVersion {
+  id: string;             // "{mapId}-v{n}"
+  mapId: string;
+  versionNumber: number;
+  filePath: string;       // "{mapId}/v{n}.shex" relative to filesDir
+  commitMessage?: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
+export interface ShExMapVersionWithContent extends ShExMapVersion {
+  content: string;
+}
+
+// ─── ShExMap Pairing Version ──────────────────────────────────────────────────
+
+export const SavePairingVersionSchema = z.object({
+  commitMessage: z.string().max(500).optional(),
+  sourceMapVersionNumber: z.coerce.number().int().min(1).optional(),
+  targetMapVersionNumber: z.coerce.number().int().min(1).optional(),
+});
+
+export type SavePairingVersion = z.infer<typeof SavePairingVersionSchema>;
+
+export interface ShExMapPairingVersion {
+  id: string;              // "{pairingId}-v{n}"
+  pairingId: string;
+  versionNumber: number;
+  commitMessage?: string;
+  sourceMapId: string;
+  sourceVersionNumber?: number;
+  targetMapId: string;
+  targetVersionNumber?: number;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
 // ─── ShExMap Pairing ──────────────────────────────────────────────────────────
 
 export const ShExMapPairingCreateSchema = z.object({
@@ -62,6 +110,8 @@ export const ShExMapPairingCreateSchema = z.object({
   description: z.string().max(2000).optional(),
   sourceMapId: z.string().min(1).max(256),
   targetMapId: z.string().min(1).max(256),
+  sourceFocusIri: z.string().max(2048).optional(),
+  targetFocusIri: z.string().max(2048).optional(),
   tags: z.array(z.string().max(50)).max(20).default([]),
   license: z.string().url().optional(),
   version: z.string().regex(/^\d+\.\d+\.\d+$/).default('1.0.0'),
@@ -93,6 +143,8 @@ export interface ShExMapPairing {
   description?: string;
   sourceMap: ShExMap;
   targetMap: ShExMap;
+  sourceFocusIri?: string;
+  targetFocusIri?: string;
   tags: string[];
   license?: string;
   version: string;

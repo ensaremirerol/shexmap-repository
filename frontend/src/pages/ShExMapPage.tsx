@@ -1,12 +1,470 @@
 import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Editor from '@monaco-editor/react';
-import { useShExMap } from '../api/shexmaps.js';
+import axios from 'axios';
+import {
+  useShExMap,
+  useShExMapVersions,
+  useSaveShExMapVersion,
+  useUpdateShExMap,
+  type ShExMapVersion,
+} from '../api/shexmaps.js';
 import { apiClient } from '../api/client.js';
+import ShExEditor from '../components/editor/ShExEditor.js';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface BindingEntry { variable: string; value: string; datatype?: string }
+interface BindingNode  { shape: string; focus: string; bindings: BindingEntry[]; children: BindingNode[] }
+interface ValidationResult {
+  valid: boolean;
+  bindingTree: BindingNode[];
+  bindings: Record<string, string>;
+  errors: string[];
+}
+
+// ─── Turtle auto-generate ─────────────────────────────────────────────────────
+
+function extractVarsFromShex(shexContent: string): string[] {
+  const vars: string[] = [];
+  for (const m of shexContent.matchAll(/%Map:\{\s*([\w:]+)\s*%\}/g)) {
+    if (m[1] && !vars.includes(m[1])) vars.push(m[1]);
+  }
+  return vars;
+}
+
+function autoGenerateTurtle(shexContent: string): string {
+  const prefixLines: string[] = [
+    '@prefix ex: <http://example.org/> .',
+    '@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .',
+  ];
+  const vars = extractVarsFromShex(shexContent);
+
+  for (const m of shexContent.matchAll(/PREFIX\s+(\w+):\s*<([^>]+)>/gi)) {
+    prefixLines.push(`@prefix ${m[1]}: <${m[2]}> .`);
+  }
+
+  const shapes: string[] = [];
+  for (const m of shexContent.matchAll(/<([^>]+)>\s*\{|\b([A-Za-z_][\w]*:[A-Za-z_][\w]*)\s*\{/g)) {
+    const name = m[1] || m[2];
+    if (name) shapes.push(name);
+  }
+
+  const varComment = vars.length > 0
+    ? `\n# Map variables to bind: ${vars.join(', ')}\n`
+    : '';
+
+  const instances = shapes.slice(0, 3).map((shape, i) => {
+    const nodeIri = `ex:node${i + 1}`;
+    const typeTriple = shape.startsWith('http') || shape.startsWith('https')
+      ? `  a <${shape}> ;`
+      : `  a ${shape} ;`;
+    return `${nodeIri}\n${typeTriple}\n  # add required properties here\n  .`;
+  });
+
+  if (instances.length === 0) {
+    instances.push('ex:node1\n  a ex:Thing ;\n  # add required properties here\n  .');
+  }
+
+  return [prefixLines.join('\n'), varComment, ...instances].join('\n') + '\n';
+}
+
+// ─── localStorage persistence ─────────────────────────────────────────────────
+
+const TURTLE_STORAGE_KEY = 'shexmap-turtle-data';
+const FOCUS_STORAGE_KEY  = 'shexmap-focus-iri';
+
+function loadTurtle(mapId: string): string {
+  try {
+    const raw = localStorage.getItem(TURTLE_STORAGE_KEY);
+    if (!raw) return '';
+    return (JSON.parse(raw) as Record<string, string>)[mapId] ?? '';
+  } catch { return ''; }
+}
+
+function saveTurtle(mapId: string, content: string) {
+  try {
+    const raw = localStorage.getItem(TURTLE_STORAGE_KEY);
+    const all: Record<string, string> = raw ? JSON.parse(raw) : {};
+    all[mapId] = content;
+    localStorage.setItem(TURTLE_STORAGE_KEY, JSON.stringify(all));
+  } catch { /* quota exceeded */ }
+}
+
+function loadFocus(mapId: string): string {
+  try {
+    const raw = localStorage.getItem(FOCUS_STORAGE_KEY);
+    if (!raw) return '';
+    return (JSON.parse(raw) as Record<string, string>)[mapId] ?? '';
+  } catch { return ''; }
+}
+
+function saveFocus(mapId: string, iri: string) {
+  try {
+    const raw = localStorage.getItem(FOCUS_STORAGE_KEY);
+    const all: Record<string, string> = raw ? JSON.parse(raw) : {};
+    all[mapId] = iri;
+    localStorage.setItem(FOCUS_STORAGE_KEY, JSON.stringify(all));
+  } catch { /* quota exceeded */ }
+}
+
+// ─── Validation result display ────────────────────────────────────────────────
+
+function BindingNodeView({ node, depth = 0 }: { node: BindingNode; depth?: number }) {
+  const [open, setOpen] = useState(true);
+  const hasContent = node.bindings.length > 0 || node.children.length > 0;
+  return (
+    <div style={{ marginLeft: depth * 14 }} className="my-0.5">
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 text-xs font-mono w-full text-left">
+        <span className="text-slate-400 w-3 shrink-0">{open ? '▼' : '▶'}</span>
+        <span className="font-semibold text-violet-700">{node.shape}</span>
+        <span className="text-slate-400 mx-0.5">@</span>
+        <span className="text-slate-500 truncate" title={node.focus}>
+          {node.focus.length > 50 ? `…${node.focus.slice(-40)}` : node.focus}
+        </span>
+        {!hasContent && <span className="text-slate-300 italic ml-1">(empty)</span>}
+      </button>
+      {open && (
+        <div className="ml-5">
+          {node.bindings.map((b, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-xs font-mono py-0.5 pl-1">
+              <span className="text-amber-600 shrink-0">{b.variable.split(/[#>]/).pop()}</span>
+              <span className="text-slate-400">=</span>
+              <span className="text-emerald-700 font-semibold">{b.value}</span>
+              {b.datatype && <span className="text-slate-400 text-[10px] ml-0.5">({b.datatype.split('#').pop()})</span>}
+            </div>
+          ))}
+          {node.children.map((child, i) => <BindingNodeView key={i} node={child} depth={depth + 1} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ValidationResult({ result }: { result: ValidationResult }) {
+  const bindingCount = Object.keys(result.bindings).length;
+  return (
+    <div className="space-y-3 px-5 py-4">
+      {result.errors.length > 0 && (
+        <div className="text-red-700 text-sm bg-red-50 border border-red-200 px-4 py-3 rounded-lg space-y-1">
+          {result.errors.map((e, i) => <div key={i}>{e}</div>)}
+        </div>
+      )}
+      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium border ${
+        result.valid ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'
+      }`}>
+        <span>{result.valid ? '✓' : '⚠'}</span>
+        <span>{result.valid
+          ? `${bindingCount} binding${bindingCount !== 1 ? 's' : ''} extracted`
+          : 'No bindings found — check ShEx syntax and focus node'}
+        </span>
+      </div>
+      {bindingCount > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Extracted Bindings</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+            {Object.entries(result.bindings).map(([variable, value]) => (
+              <div key={variable} className="flex items-start gap-2 text-xs font-mono py-0.5">
+                <span className="text-amber-600 truncate shrink-0 max-w-[180px]" title={variable}>
+                  {variable.split(/[#>]/).pop() ?? variable}
+                </span>
+                <span className="text-slate-400">=</span>
+                <span className="text-emerald-700 font-semibold break-all">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {result.bindingTree.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Binding Tree</div>
+          <div className="font-mono text-xs space-y-0.5">
+            {result.bindingTree.map((n, i) => <BindingNodeView key={i} node={n} depth={0} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Turtle panel ─────────────────────────────────────────────────────────────
+
+function TurtlePanel({
+  mapId,
+  shexContent,
+  turtleContent,
+  focusNode,
+  onChangeTurtle,
+  onChangeFocusNode,
+  onValidate,
+  isValidating,
+  validationResult,
+  validationError,
+}: {
+  mapId: string;
+  shexContent: string;
+  turtleContent: string;
+  focusNode: string;
+  onChangeTurtle: (v: string) => void;
+  onChangeFocusNode: (v: string) => void;
+  onValidate: () => void;
+  isValidating: boolean;
+  validationResult: ValidationResult | null;
+  validationError: string;
+}) {
+  function handleAutoGenerate() {
+    const stub = autoGenerateTurtle(shexContent);
+    onChangeTurtle(stub);
+    saveTurtle(mapId, stub);
+  }
+
+  function handleChange(v: string) {
+    onChangeTurtle(v);
+    saveTurtle(mapId, v);
+  }
+
+  const canValidate = !!shexContent && !!turtleContent && !!focusNode;
+
+  return (
+    <div className="border-t border-slate-700">
+      {/* Turtle header */}
+      <div className="flex items-center justify-between bg-slate-800 px-3 py-2 gap-2">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Sample Turtle Data</span>
+        <div className="flex gap-2 ml-auto">
+          {shexContent && (
+            <button
+              onClick={handleAutoGenerate}
+              className="text-xs px-2 py-0.5 rounded bg-slate-600 text-slate-300 hover:bg-slate-500 transition-colors"
+            >
+              Auto-generate
+            </button>
+          )}
+          {turtleContent && (
+            <button
+              onClick={() => {
+                const blob = new Blob([turtleContent], { type: 'text/turtle' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `${mapId}.ttl`; a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="text-xs px-2 py-0.5 rounded bg-slate-600 text-slate-300 hover:bg-slate-500 transition-colors"
+            >
+              ↓ Download
+            </button>
+          )}
+        </div>
+      </div>
+      <Editor
+        height={200}
+        defaultLanguage="plaintext"
+        language="plaintext"
+        value={turtleContent}
+        onChange={(v) => handleChange(v ?? '')}
+        theme="vs-dark"
+        options={{ minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 12, wordWrap: 'on' }}
+      />
+      {/* Focus IRI + Validate */}
+      <div className="flex items-center gap-2 bg-slate-800 border-t border-slate-700 px-3 py-1.5">
+        <label className="text-xs text-slate-400 shrink-0">Focus IRI</label>
+        <input
+          type="text"
+          value={focusNode}
+          onChange={(e) => { onChangeFocusNode(e.target.value); saveFocus(mapId, e.target.value); }}
+          placeholder="e.g. ex:node1 or <http://example.org/node1> or <...>@START"
+          className="flex-1 text-xs font-mono bg-slate-700 text-slate-200 placeholder-slate-500 border border-slate-600 rounded px-2 py-1 focus:outline-none focus:border-violet-400"
+        />
+        <button
+          onClick={onValidate}
+          disabled={isValidating || !canValidate}
+          title={canValidate ? 'Validate this ShExMap against the sample data' : 'Add ShEx content, Turtle data, and Focus IRI to validate'}
+          className="shrink-0 text-xs px-2.5 py-1 rounded bg-violet-600 hover:bg-violet-500 text-white font-medium disabled:opacity-40 transition-colors"
+        >
+          {isValidating ? 'Validating…' : 'Validate'}
+        </button>
+      </div>
+      {/* Validation results */}
+      {(validationError || validationResult) && (
+        <div className="bg-white border-t border-slate-200">
+          {validationError && (
+            <div className="px-5 py-3 text-red-700 text-xs bg-red-50 border-b border-red-200">{validationError}</div>
+          )}
+          {validationResult && <ValidationResult result={validationResult} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Map metadata form ────────────────────────────────────────────────────────
+
+function MapMetaForm({
+  map,
+  onSave,
+  isSaving,
+}: {
+  map: { id: string; title: string; description?: string; tags: string[]; version: string; schemaUrl?: string };
+  onSave: (data: { title: string; description: string; tags: string[]; version: string; schemaUrl: string }) => void;
+  isSaving: boolean;
+}) {
+  const [title, setTitle]     = useState(map.title);
+  const [desc, setDesc]       = useState(map.description ?? '');
+  const [tags, setTags]       = useState(map.tags.join(', '));
+  const [version, setVersion] = useState(map.version);
+  const [schema, setSchema]   = useState(map.schemaUrl ?? '');
+  const [flash, setFlash]     = useState(false);
+
+  useEffect(() => {
+    setTitle(map.title);
+    setDesc(map.description ?? '');
+    setTags(map.tags.join(', '));
+    setVersion(map.version);
+    setSchema(map.schemaUrl ?? '');
+  }, [map.id]);
+
+  function handleSave() {
+    onSave({
+      title,
+      description: desc,
+      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+      version,
+      schemaUrl: schema,
+    });
+    setFlash(true);
+    setTimeout(() => setFlash(false), 1500);
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-2 text-sm mt-3 pb-3">
+      <div className="flex gap-2">
+        <input value={title} onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="flex-1 bg-slate-700 text-slate-200 placeholder-slate-500 border border-slate-600 rounded px-2.5 py-1.5 focus:outline-none focus:border-violet-400" />
+        <input value={version} onChange={(e) => setVersion(e.target.value)}
+          placeholder="1.0.0"
+          className="w-20 bg-slate-700 text-slate-200 placeholder-slate-500 border border-slate-600 rounded px-2.5 py-1.5 focus:outline-none focus:border-violet-400" />
+      </div>
+      <input value={desc} onChange={(e) => setDesc(e.target.value)}
+        placeholder="Description (optional)"
+        className="bg-slate-700 text-slate-200 placeholder-slate-500 border border-slate-600 rounded px-2.5 py-1.5 focus:outline-none focus:border-violet-400" />
+      <input value={tags} onChange={(e) => setTags(e.target.value)}
+        placeholder="Tags (comma separated)"
+        className="bg-slate-700 text-slate-200 placeholder-slate-500 border border-slate-600 rounded px-2.5 py-1.5 focus:outline-none focus:border-violet-400" />
+      <input value={schema} onChange={(e) => setSchema(e.target.value)}
+        placeholder="Schema URL (optional)"
+        className="bg-slate-700 text-slate-200 placeholder-slate-500 border border-slate-600 rounded px-2.5 py-1.5 focus:outline-none focus:border-violet-400" />
+      <button
+        onClick={handleSave}
+        disabled={isSaving}
+        className={`text-xs px-3 py-1.5 rounded font-medium transition-colors ${flash ? 'bg-green-600 text-white' : 'bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50'}`}
+      >
+        {flash ? 'Saved!' : isSaving ? 'Saving…' : 'Save metadata'}
+      </button>
+    </div>
+  );
+}
+
+// ─── Metadata row ─────────────────────────────────────────────────────────────
+
+function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
+      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{label}</div>
+      <div className={`text-sm text-slate-700 ${mono ? 'font-mono' : ''}`}>{value}</div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ShExMapPage() {
   const { id } = useParams<{ id: string }>();
   const { data: map, isLoading, isError } = useShExMap(id ?? '');
+  const versionsQuery   = useShExMapVersions(id ?? '');
+  const saveVersion     = useSaveShExMapVersion(id ?? '');
+  const updateMeta      = useUpdateShExMap(id ?? '');
+
+  const [shexContent, setShexContent]       = useState('');
+  const [loadedVersionNum, setLoadedVersionNum] = useState<number | null>(null);
+  const [showMeta, setShowMeta]             = useState(false);
+
+  const [turtle, setTurtle]       = useState('');
+  const [focusNode, setFocusNode] = useState('');
+
+  const [validating, setValidating]         = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [validationError, setValidationError]   = useState('');
+
+  // Fetch file content when map has a fileName but no inline content
+  const { data: fileContent } = useQuery<string>({
+    queryKey: ['shex-file', map?.fileName],
+    queryFn: () =>
+      apiClient
+        .get(`/files/${encodeURIComponent(map!.fileName!)}`, { responseType: 'text' })
+        .then((r) => r.data as string),
+    enabled: !!map?.fileName && !map?.content,
+  });
+
+  // Auto-load content: prefer latest server version, fall back to file/inline
+  const prevMapId = useRef('');
+  useEffect(() => {
+    if (!id || id === prevMapId.current) return;
+    const versions = versionsQuery.data;
+    if (versions === undefined) return; // wait for version list
+
+    if (versions.length > 0) {
+      const latest = versions[versions.length - 1]!;
+      prevMapId.current = id;
+      axios.get(`/api/v1/shexmaps/${id}/versions/${latest.versionNumber}`)
+        .then(({ data }) => {
+          setShexContent(data.content as string);
+          setLoadedVersionNum(latest.versionNumber);
+        })
+        .catch(() => {/* ignore */});
+    } else {
+      const content = fileContent ?? map?.content;
+      if (!content) return;
+      prevMapId.current = id;
+      setShexContent(content);
+    }
+  }, [id, versionsQuery.data, fileContent, map?.content]);
+
+  // Restore turtle and focus IRI from localStorage
+  useEffect(() => {
+    if (!id) return;
+    const t = loadTurtle(id);
+    if (t) setTurtle(t);
+    const f = loadFocus(id);
+    if (f) setFocusNode(f);
+  }, [id]);
+
+  const handleValidate = useCallback(async () => {
+    setValidating(true);
+    setValidationError('');
+    setValidationResult(null);
+    try {
+      const { data } = await axios.post<ValidationResult>('/api/v1/validate', {
+        sourceShEx: shexContent,
+        sourceRdf: turtle,
+        sourceNode: focusNode,
+      });
+      setValidationResult(data);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } }; message?: string };
+      setValidationError(err.response?.data?.error ?? err.message ?? 'Validation failed');
+    } finally {
+      setValidating(false);
+    }
+  }, [shexContent, turtle, focusNode]);
+
+  async function handleLoadVersion(vn: number) {
+    try {
+      const { data } = await axios.get(`/api/v1/shexmaps/${id}/versions/${vn}`);
+      setShexContent(data.content as string);
+      setLoadedVersionNum(vn);
+    } catch { /* ignore */ }
+  }
 
   if (isLoading) return <div className="py-20 text-center text-slate-400 text-sm">Loading…</div>;
   if (isError || !map) return (
@@ -14,6 +472,13 @@ export default function ShExMapPage() {
       <p className="text-slate-500">ShExMap not found.</p>
     </div>
   );
+
+  const serverVersions = (versionsQuery.data ?? []).map((v: ShExMapVersion) => ({
+    versionNumber: v.versionNumber,
+    commitMessage: v.commitMessage,
+    authorName: v.authorName,
+    createdAt: v.createdAt,
+  }));
 
   return (
     <div className="space-y-6">
@@ -38,14 +503,10 @@ export default function ShExMapPage() {
             <span>{map.stars}</span>
           </div>
         </div>
-
         {map.tags.length > 0 && (
           <div className="flex gap-1.5 mt-3 flex-wrap">
             {map.tags.map((tag) => (
-              <span
-                key={tag}
-                className="bg-violet-50 text-violet-700 border border-violet-100 text-xs px-2.5 py-0.5 rounded-full font-medium"
-              >
+              <span key={tag} className="bg-violet-50 text-violet-700 border border-violet-100 text-xs px-2.5 py-0.5 rounded-full font-medium">
                 {tag}
               </span>
             ))}
@@ -59,9 +520,7 @@ export default function ShExMapPage() {
         <MetaRow label="Version" value={`v${map.version}`} />
         <MetaRow label="Created" value={new Date(map.createdAt).toLocaleDateString()} />
         <MetaRow label="Updated" value={new Date(map.modifiedAt).toLocaleDateString()} />
-        {map.fileName && (
-          <MetaRow label="File" value={map.fileName} mono />
-        )}
+        {map.fileName && <MetaRow label="File" value={map.fileName} mono />}
         <MetaRow label="Format" value={map.fileFormat} mono />
         {map.schemaUrl && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
@@ -78,114 +537,72 @@ export default function ShExMapPage() {
         {map.sourceUrl && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Source URL</div>
-            <a
-              href={map.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-violet-600 hover:underline break-all"
-            >
+            <a href={map.sourceUrl} target="_blank" rel="noreferrer"
+              className="text-sm text-violet-600 hover:underline break-all">
               {map.sourceUrl}
             </a>
           </div>
         )}
       </div>
 
-      {/* File content */}
-      <FileContentPanel
-        fileName={map.fileName}
-        fileFormat={map.fileFormat}
-        inlineContent={map.content}
-        downloadUrl={map.sourceUrl}
-      />
-    </div>
-  );
-}
-
-function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
-      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{label}</div>
-      <div className={`text-sm text-slate-700 ${mono ? 'font-mono' : ''}`}>{value}</div>
-    </div>
-  );
-}
-
-function FileContentPanel({
-  fileName,
-  fileFormat,
-  inlineContent,
-  downloadUrl,
-}: {
-  fileName?: string;
-  fileFormat: string;
-  inlineContent?: string;
-  downloadUrl?: string;
-}) {
-  // Fetch from /files endpoint if no inline content but we have a fileName
-  const { data: fetchedContent, isLoading, isError } = useQuery<string>({
-    queryKey: ['shex-file', fileName],
-    queryFn: () =>
-      apiClient
-        .get(`/files/${encodeURIComponent(fileName!)}`, { responseType: 'text' })
-        .then((r) => r.data as string),
-    enabled: !inlineContent && !!fileName,
-  });
-
-  const content = inlineContent ?? fetchedContent;
-
-  if (!fileName && !inlineContent) return null;
-
-  const editorLang = fileFormat === 'shexj' ? 'json' : 'turtle';
-
-  return (
-    <div className="rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-white">
-      {/* Panel header */}
-      <div className="flex items-center justify-between bg-slate-800 px-4 py-2.5">
-        <span className="text-sm font-medium text-slate-100 font-mono">{fileName ?? 'inline content'}</span>
-        <div className="flex items-center gap-3">
-          <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono">
-            {fileFormat}
-          </span>
-          {downloadUrl && (
-            <a
-              href={downloadUrl}
-              className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
-              target="_blank"
-              rel="noreferrer"
-              download={fileName}
+      {/* Editor + Turtle + Validate panel */}
+      <div className="rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-white">
+        {/* Panel header */}
+        <div className="bg-slate-800 px-4 py-2.5 space-y-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-100 font-mono">
+              {loadedVersionNum !== null
+                ? `${map.fileName ?? map.id} @ v${loadedVersionNum}`
+                : (map.fileName ?? 'inline content')}
+            </span>
+            <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono ml-1">
+              {map.fileFormat}
+            </span>
+            <button
+              onClick={() => setShowMeta((s) => !s)}
+              className="ml-auto text-xs text-slate-400 hover:text-slate-200 transition-colors"
             >
-              ↓ download
-            </a>
+              {showMeta ? 'Hide metadata ▲' : 'Edit metadata ▼'}
+            </button>
+          </div>
+          {showMeta && (
+            <MapMetaForm
+              map={map}
+              onSave={(d) => updateMeta.mutate(d)}
+              isSaving={updateMeta.isPending}
+            />
           )}
         </div>
-      </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center text-slate-400 text-sm" style={{ height: 400 }}>
-          Loading file…
-        </div>
-      )}
-      {isError && (
-        <div className="flex items-center justify-center text-red-400 text-sm" style={{ height: 400 }}>
-          Could not load file.
-        </div>
-      )}
-      {content !== undefined && (
-        <Editor
+        {/* ShEx editor */}
+        <ShExEditor
+          value={shexContent}
+          mapId={map.id}
+          fileName={map.fileName}
+          fileFormat={map.fileFormat}
           height={400}
-          defaultLanguage={editorLang}
-          value={content}
-          options={{
-            readOnly: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            fontSize: 13,
-            lineNumbers: 'on',
-            wordWrap: 'on',
-          }}
-          theme="vs-dark"
+          readOnly={false}
+          serverVersions={serverVersions}
+          onSaveServerVersion={(c, msg) => saveVersion.mutate({ content: c, commitMessage: msg })}
+          isSavingServerVersion={saveVersion.isPending}
+          onLoadServerVersion={handleLoadVersion}
+          onChange={setShexContent}
         />
-      )}
+
+        {/* Turtle + Focus IRI + Validate */}
+        <TurtlePanel
+          mapId={map.id}
+          shexContent={shexContent}
+          turtleContent={turtle}
+          focusNode={focusNode}
+          onChangeTurtle={setTurtle}
+          onChangeFocusNode={setFocusNode}
+          onValidate={handleValidate}
+          isValidating={validating}
+          validationResult={validationResult}
+          validationError={validationError}
+        />
+      </div>
     </div>
   );
 }

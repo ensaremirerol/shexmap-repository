@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { FastifyInstance } from 'fastify';
 import type {
   ShExMap, ShExMapCreate, ShExMapUpdate, ShExMapQuery,
-  ShExMapPairing, ShExMapPairingCreate, ShExMapPairingQuery,
+  ShExMapPairing, ShExMapPairingCreate, ShExMapPairingUpdate, ShExMapPairingQuery,
 } from '../models/shexmap.model.js';
 import { sparqlSelect, sparqlUpdate } from './sparql.service.js';
 import { validateShExMap } from './shex.service.js';
@@ -56,22 +56,29 @@ export async function listShExMaps(
   `;
 
   const rows = await sparqlSelect(fastify, sparql);
-  const items: ShExMap[] = rows.map((r) => ({
-    id: extractLocalId(r['id']?.value ?? ''),
-    title: r['title']?.value ?? '',
-    description: r['description']?.value,
-    fileName: r['fileName']?.value,
-    fileFormat: r['fileFormat']?.value ?? 'shexc',
-    sourceUrl: r['sourceUrl']?.value,
-    schemaUrl: r['schemaUrl']?.value,
-    tags: [],
-    version: r['version']?.value ?? '1.0.0',
-    authorId: extractLocalId(r['authorId']?.value ?? ''),
-    authorName: r['authorName']?.value ?? 'Unknown',
-    createdAt: r['createdAt']?.value ?? '',
-    modifiedAt: r['modifiedAt']?.value ?? '',
-    stars: parseInt(r['stars']?.value ?? '0', 10),
-  }));
+  const seen = new Set<string>();
+  const items: ShExMap[] = [];
+  for (const r of rows) {
+    const id = extractLocalId(r['id']?.value ?? '');
+    if (seen.has(id)) continue;
+    seen.add(id);
+    items.push({
+      id,
+      title: r['title']?.value ?? '',
+      description: r['description']?.value,
+      fileName: r['fileName']?.value,
+      fileFormat: r['fileFormat']?.value ?? 'shexc',
+      sourceUrl: r['sourceUrl']?.value,
+      schemaUrl: r['schemaUrl']?.value,
+      tags: [],
+      version: r['version']?.value ?? '1.0.0',
+      authorId: extractLocalId(r['authorId']?.value ?? ''),
+      authorName: r['authorName']?.value ?? 'Unknown',
+      createdAt: r['createdAt']?.value ?? '',
+      modifiedAt: r['modifiedAt']?.value ?? '',
+      stars: parseInt(r['stars']?.value ?? '0', 10),
+    });
+  }
 
   return { items, total: items.length };
 }
@@ -172,6 +179,51 @@ export async function createShExMap(
   };
 }
 
+export async function updateShExMap(
+  fastify: FastifyInstance,
+  id: string,
+  data: ShExMapUpdate
+): Promise<ShExMap | null> {
+  const iri = `${RM}${id}`;
+  const now = new Date().toISOString();
+
+  // Delete all mutable properties first
+  await sparqlUpdate(fastify, `
+    DELETE {
+      <${iri}> dct:title ?title .
+      <${iri}> dct:description ?description .
+      <${iri}> dcat:keyword ?tag .
+      <${iri}> schema:version ?version .
+      <${iri}> dct:modified ?modified .
+      <${iri}> dct:source ?sourceUrl .
+      <${iri}> <${SM}hasSchema> ?schemaUrl .
+    }
+    WHERE {
+      OPTIONAL { <${iri}> dct:title ?title }
+      OPTIONAL { <${iri}> dct:description ?description }
+      OPTIONAL { <${iri}> dcat:keyword ?tag }
+      OPTIONAL { <${iri}> schema:version ?version }
+      OPTIONAL { <${iri}> dct:modified ?modified }
+      OPTIONAL { <${iri}> dct:source ?sourceUrl }
+      OPTIONAL { <${iri}> <${SM}hasSchema> ?schemaUrl }
+    }
+  `);
+
+  const tagTriples = (data.tags ?? []).map((t) => `<${iri}> dcat:keyword "${escapeStr(t)}" .`).join('\n    ');
+  const lines = [
+    data.title !== undefined        ? `<${iri}> dct:title "${escapeStr(data.title)}" .` : '',
+    data.description !== undefined  ? `<${iri}> dct:description "${escapeStr(data.description)}" .` : '',
+    data.version !== undefined      ? `<${iri}> schema:version "${data.version}" .` : '',
+    data.sourceUrl !== undefined    ? `<${iri}> dct:source <${data.sourceUrl}> .` : '',
+    data.schemaUrl !== undefined    ? `<${iri}> <${SM}hasSchema> <${data.schemaUrl}> .` : '',
+    `<${iri}> dct:modified "${now}"^^xsd:dateTime .`,
+    tagTriples,
+  ].filter(Boolean).join('\n    ');
+
+  await sparqlUpdate(fastify, `INSERT DATA { ${lines} }`);
+  return getShExMap(fastify, id);
+}
+
 export async function deleteShExMap(fastify: FastifyInstance, id: string): Promise<void> {
   await sparqlUpdate(fastify, `DELETE WHERE { <${RM}${id}> ?p ?o }`);
 }
@@ -196,7 +248,7 @@ export async function listShExMapPairings(
   const orderBy = `ORDER BY ${query.order === 'desc' ? 'DESC' : 'ASC'}(?${sortVar})`;
 
   const sparql = `
-    SELECT ?id ?title ?description
+    SELECT ?id ?title ?description ?license
            ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars
            ?srcId ?srcTitle ?srcFileName ?srcFileFormat ?srcSourceUrl ?srcSchemaUrl
            ?tgtId ?tgtTitle ?tgtFileName ?tgtFileFormat ?tgtSourceUrl ?tgtSchemaUrl
@@ -210,6 +262,7 @@ export async function listShExMapPairings(
           dct:modified ?modifiedAt ;
           schema:version ?version .
       OPTIONAL { ?id dct:description ?description }
+      OPTIONAL { ?id dct:license ?license }
       OPTIONAL { ?authorId schema:name ?authorName }
       OPTIONAL { ?id <${SM}stars> ?stars }
       OPTIONAL { ?srcId dct:title ?srcTitle }
@@ -230,20 +283,28 @@ export async function listShExMapPairings(
   `;
 
   const rows = await sparqlSelect(fastify, sparql);
-  const items: ShExMapPairing[] = rows.map((r) => ({
-    id: extractLocalId(r['id']?.value ?? ''),
-    title: r['title']?.value ?? '',
-    description: r['description']?.value,
-    sourceMap: rowToShExMap(r, 'src'),
-    targetMap: rowToShExMap(r, 'tgt'),
-    tags: [],
-    version: r['version']?.value ?? '1.0.0',
-    authorId: extractLocalId(r['authorId']?.value ?? ''),
-    authorName: r['authorName']?.value ?? 'Unknown',
-    createdAt: r['createdAt']?.value ?? '',
-    modifiedAt: r['modifiedAt']?.value ?? '',
-    stars: parseInt(r['stars']?.value ?? '0', 10),
-  }));
+  const seen = new Set<string>();
+  const items: ShExMapPairing[] = [];
+  for (const r of rows) {
+    const id = extractLocalId(r['id']?.value ?? '');
+    if (seen.has(id)) continue;
+    seen.add(id);
+    items.push({
+      id,
+      title: r['title']?.value ?? '',
+      description: r['description']?.value,
+      sourceMap: rowToShExMap(r, 'src'),
+      targetMap: rowToShExMap(r, 'tgt'),
+      tags: [],
+      license: r['license']?.value,
+      version: r['version']?.value ?? '1.0.0',
+      authorId: extractLocalId(r['authorId']?.value ?? ''),
+      authorName: r['authorName']?.value ?? 'Unknown',
+      createdAt: r['createdAt']?.value ?? '',
+      modifiedAt: r['modifiedAt']?.value ?? '',
+      stars: parseInt(r['stars']?.value ?? '0', 10),
+    });
+  }
 
   return { items, total: items.length };
 }
@@ -255,8 +316,9 @@ export async function getShExMapPairing(
   const iri = `${RP}${id}`;
 
   const sparql = `
-    SELECT ?title ?description ?version ?stars ?tag
+    SELECT ?title ?description ?version ?license ?stars ?tag
            ?authorId ?authorName ?createdAt ?modifiedAt
+           ?sourceFocusIri ?targetFocusIri
            ?srcId ?srcTitle ?srcDesc ?srcContent ?srcFileName ?srcFileFormat ?srcSourceUrl ?srcSchemaUrl
            ?tgtId ?tgtTitle ?tgtDesc ?tgtContent ?tgtFileName ?tgtFileFormat ?tgtSourceUrl ?tgtSchemaUrl
     WHERE {
@@ -269,9 +331,12 @@ export async function getShExMapPairing(
           dct:modified ?modifiedAt ;
           schema:version ?version .
       OPTIONAL { <${iri}> dct:description ?description }
+      OPTIONAL { <${iri}> dct:license ?license }
       OPTIONAL { ?authorId schema:name ?authorName }
       OPTIONAL { <${iri}> <${SM}stars> ?stars }
       OPTIONAL { <${iri}> dcat:keyword ?tag }
+      OPTIONAL { <${iri}> <${SM}sourceFocusIri> ?sourceFocusIri }
+      OPTIONAL { <${iri}> <${SM}targetFocusIri> ?targetFocusIri }
       OPTIONAL { ?srcId dct:title ?srcTitle }
       OPTIONAL { ?srcId dct:description ?srcDesc }
       OPTIONAL { ?srcId <${SM}mappingContent> ?srcContent }
@@ -333,7 +398,10 @@ export async function getShExMapPairing(
       modifiedAt: '',
       stars: 0,
     },
+    sourceFocusIri: r['sourceFocusIri']?.value,
+    targetFocusIri: r['targetFocusIri']?.value,
     tags,
+    license: r['license']?.value,
     version: r['version']?.value ?? '1.0.0',
     authorId: extractLocalId(r['authorId']?.value ?? ''),
     authorName: r['authorName']?.value ?? 'Unknown',
@@ -365,6 +433,8 @@ export async function createShExMapPairing(
         ${data.description ? `dct:description "${escapeStr(data.description)}" ;` : ''}
         <${SM}sourceMap> <${srcIri}> ;
         <${SM}targetMap> <${tgtIri}> ;
+        ${data.sourceFocusIri ? `<${SM}sourceFocusIri> "${escapeStr(data.sourceFocusIri)}" ;` : ''}
+        ${data.targetFocusIri ? `<${SM}targetFocusIri> "${escapeStr(data.targetFocusIri)}" ;` : ''}
         ${data.license ? `dct:license <${data.license}> ;` : ''}
         schema:version "${data.version}" ;
         dct:creator <${authorIri}> ;
@@ -377,6 +447,59 @@ export async function createShExMapPairing(
 
   await sparqlUpdate(fastify, update);
   return (await getShExMapPairing(fastify, id))!;
+}
+
+export async function updateShExMapPairing(
+  fastify: FastifyInstance,
+  id: string,
+  data: ShExMapPairingUpdate
+): Promise<ShExMapPairing | null> {
+  const iri = `${RP}${id}`;
+  const now = new Date().toISOString();
+
+  await sparqlUpdate(fastify, `
+    DELETE {
+      <${iri}> dct:title ?title .
+      <${iri}> dct:description ?description .
+      <${iri}> dcat:keyword ?tag .
+      <${iri}> schema:version ?version .
+      <${iri}> dct:modified ?modified .
+      <${iri}> dct:license ?license .
+      <${iri}> <${SM}sourceMap> ?srcMap .
+      <${iri}> <${SM}targetMap> ?tgtMap .
+      <${iri}> <${SM}sourceFocusIri> ?srcFocus .
+      <${iri}> <${SM}targetFocusIri> ?tgtFocus .
+    }
+    WHERE {
+      OPTIONAL { <${iri}> dct:title ?title }
+      OPTIONAL { <${iri}> dct:description ?description }
+      OPTIONAL { <${iri}> dcat:keyword ?tag }
+      OPTIONAL { <${iri}> schema:version ?version }
+      OPTIONAL { <${iri}> dct:modified ?modified }
+      OPTIONAL { <${iri}> dct:license ?license }
+      OPTIONAL { <${iri}> <${SM}sourceMap> ?srcMap }
+      OPTIONAL { <${iri}> <${SM}targetMap> ?tgtMap }
+      OPTIONAL { <${iri}> <${SM}sourceFocusIri> ?srcFocus }
+      OPTIONAL { <${iri}> <${SM}targetFocusIri> ?tgtFocus }
+    }
+  `);
+
+  const tagTriples = (data.tags ?? []).map((t) => `<${iri}> dcat:keyword "${escapeStr(t)}" .`).join('\n    ');
+  const lines = [
+    data.title !== undefined       ? `<${iri}> dct:title "${escapeStr(data.title)}" .` : '',
+    data.description !== undefined ? `<${iri}> dct:description "${escapeStr(data.description)}" .` : '',
+    data.version !== undefined     ? `<${iri}> schema:version "${data.version}" .` : '',
+    data.license !== undefined     ? `<${iri}> dct:license <${data.license}> .` : '',
+    data.sourceMapId !== undefined ? `<${iri}> <${SM}sourceMap> <${RM}${data.sourceMapId}> .` : '',
+    data.targetMapId !== undefined ? `<${iri}> <${SM}targetMap> <${RM}${data.targetMapId}> .` : '',
+    data.sourceFocusIri !== undefined ? `<${iri}> <${SM}sourceFocusIri> "${escapeStr(data.sourceFocusIri)}" .` : '',
+    data.targetFocusIri !== undefined ? `<${iri}> <${SM}targetFocusIri> "${escapeStr(data.targetFocusIri)}" .` : '',
+    `<${iri}> dct:modified "${now}"^^xsd:dateTime .`,
+    tagTriples,
+  ].filter(Boolean).join('\n    ');
+
+  await sparqlUpdate(fastify, `INSERT DATA { ${lines} }`);
+  return getShExMapPairing(fastify, id);
 }
 
 export async function deleteShExMapPairing(fastify: FastifyInstance, id: string): Promise<void> {

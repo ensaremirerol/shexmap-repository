@@ -24,10 +24,11 @@ services:
       NODE_ENV: production
       QLEVER_SPARQL_URL: http://qlever:7001/sparql
       QLEVER_UPDATE_URL: http://qlever:7001/update
+      QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
       SHEX_FILES_DIR: /shex-files
       QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-very_secure_token}
     volumes:
-      - ./sparql/files:/shex-files:ro
+      - ./sparql/files:/shex-files:rw
     depends_on:
       qlever-init:
         condition: service_completed_successfully
@@ -47,10 +48,16 @@ services:
   qlever-init:
     image: adfreiburg/qlever:latest
     entrypoint: ["/bin/sh", "/scripts/init-index.sh"]
+    environment:
+      # Optional: set to a path inside the container to restore from a backup.
+      # Example: RESTORE_FROM=/backups/2024-01-01T12-00-00.ttl
+      # The sparql/backup/ host directory is mounted at /backups below.
+      RESTORE_FROM: ${RESTORE_FROM:-}
     volumes:
       - qlever-data:/data          # persisted index files
       - ./sparql:/sparql-data:ro   # seed + ontology Turtle files
       - ./docker/qlever:/scripts:ro
+      - ./sparql/backup:/backups:ro  # backup files available to restore from
     working_dir: /data
     depends_on:
       qlever-perms:
@@ -61,13 +68,8 @@ services:
   # ─── QLever SPARQL server ──────────────────────────────────────────────────
   qlever:
     image: adfreiburg/qlever:latest
-    entrypoint: ["qlever", "start",
-      "--name", "shexmap",
-      "--description", "ShExMap Repository",
-      "--port", "7001",
-      "--system", "native",
-      "--run-in-foreground",
-      "--access-token", "${QLEVER_ACCESS_TOKEN:-very_secure_token}"
+    entrypoint: ["sh", "-c",
+      "qlever start --name shexmap --description 'ShExMap Repository' --port 7001 --system native --run-in-foreground --access-token \"${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}\""
     ]
     volumes:
       - qlever-data:/data          # index built by qlever-init

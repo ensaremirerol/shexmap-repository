@@ -16,7 +16,7 @@ export default function BrowsePage() {
   const paramTab = searchParams.get('tab') as Tab | null;
   const highlightSchema = searchParams.get('schema') ?? undefined;
 
-  const [tab, setTab] = useState<Tab>(paramTab ?? 'schemas');
+  const [tab, setTab] = useState<Tab>(paramTab ?? 'pairings');
   const [mapFilters, setMapFilters] = useState<ShExMapFilters>({ page: 1, limit: 20, sort: 'modified' });
   const [pairingFilters, setPairingFilters] = useState<PairingFilters>({ page: 1, limit: 20, sort: 'modified' });
 
@@ -53,9 +53,10 @@ export default function BrowsePage() {
   }, [tab, highlightSchema, schemasQuery.data]);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'schemas', label: 'Schemas' },
-    { id: 'shexmaps', label: 'ShExMap Files' },
     { id: 'pairings', label: 'Pairings' },
+    { id: 'shexmaps', label: 'ShExMaps' },
+    // { id: 'schemas', label: 'Schemas' },
+    
   ];
 
   return (
@@ -142,7 +143,7 @@ export default function BrowsePage() {
                     {linkedPairings.map((pairing) => (
                       <Link
                         key={pairing.id}
-                        to={`/pairings/${pairing.id}`}
+                        to={`/pairings/create?id=${pairing.id}`}
                         className="bg-blue-50 text-blue-700 border border-blue-100 text-xs px-2 py-0.5 rounded-full font-medium hover:bg-blue-100 transition-colors"
                       >
                         {pairing.title}
@@ -290,7 +291,7 @@ export default function BrowsePage() {
             {pairingsQuery.data?.items.map((pairing) => (
               <Link
                 key={pairing.id}
-                to={`/pairings/${pairing.id}`}
+                to={`/pairings/create?id=${pairing.id}`}
                 className="group flex items-start justify-between bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 hover:border-violet-300 hover:shadow-md transition-all"
               >
                 <div className="min-w-0 flex-1">

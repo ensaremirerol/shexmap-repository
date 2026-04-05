@@ -41,10 +41,7 @@ cd api && npm run typecheck
 cd api && npm test
 cd frontend && npm test
 
-# Seed QLever with sample data
-./scripts/seed-qlever.sh
-
-# Force full QLever index rebuild
+# Force full QLever index rebuild (wipes volume, rebuilds from sparql/seed/ + ontology)
 ./scripts/rebuild-index.sh
 
 # Validate a ShExMap file
@@ -74,12 +71,41 @@ api:3000 → qlever:7001  (direct SPARQL queries, not through nginx)
 - [api/src/rdf/](api/src/rdf/) — RDF prefix map and SPARQL query helpers
 - [frontend/src/api/](frontend/src/api/) — typed React Query hooks for all API endpoints
 - [frontend/src/store/authStore.ts](frontend/src/store/authStore.ts) — Zustand auth state (persisted to localStorage)
+- [frontend/src/pages/CreatePairingPage.tsx](frontend/src/pages/CreatePairingPage.tsx) — full pairing create/edit workflow (see below)
 - [frontend/src/components/graph/](frontend/src/components/graph/) — ReactFlow mapping visualisation
 - [frontend/src/components/coverage/](frontend/src/components/coverage/) — Recharts coverage heatmap
 - [sparql/ontology/shexmap.ttl](sparql/ontology/shexmap.ttl) — RDF ontology; defines all vocabulary used in the triplestore
-- [sparql/seed/](sparql/seed/) — seed Turtle files loaded into QLever on first start
+- [sparql/seed/](sparql/seed/) — optional seed Turtle files loaded into QLever on first start (subdirs: `shexmaps/`, `pairings/`); starts empty — add `.ttl` files here to pre-populate
+- [sparql/files/](sparql/files/) — versioned ShExMap file store; each map gets a subdirectory `{id}/v{n}.shex`
 - [sparql/queries/](sparql/queries/) — reference SPARQL queries (`.rq` = SELECT, `.ru` = UPDATE)
 - [docker/nginx/nginx.conf](docker/nginx/nginx.conf) — reverse proxy routing for all services
+
+### Create Pairing Page (`/pairings/create`)
+
+`CreatePairingPage.tsx` is the main authoring UI. Key behaviours:
+
+**Side panels (source & target)**
+- Each panel has a ShExMap selector, a versioned Monaco ShEx editor, a Sample Turtle Data editor, and a Focus IRI input.
+- Turtle data and focus IRI are persisted to `localStorage` keyed by `mapId` (`shexmap-turtle-data` and `shexmap-focus-iri` keys) and restored automatically when a map is selected.
+- When a pairing is loaded (`?id=`), the stored `sourceFocusIri` and `targetFocusIri` are also restored from the SPARQL pairing record.
+- Each panel has its own **Validate** button (in the Focus IRI row) that POSTs just that side's ShEx + Turtle + focus node to `POST /api/v1/validate` and shows a compact binding summary inline. Enabled only when all three inputs are present.
+
+**Shared variable highlighting**
+- `buildVarColorMap` computes which `%Map:{ variable %}` names appear in both ShExMaps; matched variables are colour-coded, unmatched are greyed.
+
+**Paired validation (section 3)**
+- Direction toggle: Source→Target or Target→Source.
+- **Validate** extracts bindings from the active source side.
+- **Validate & Materialise** additionally generates target RDF using the target ShEx.
+
+**Save / version**
+- "Save Pairing" (new) or "Update Pairing" (edit) saves pairing metadata to QLever. On update, it also creates a `ShExMapPairingVersion` snapshot atomically. An optional change-note input appears next to the button when editing.
+- Saving also stores `sourceFocusIri` and `targetFocusIri` in the pairing record in QLever.
+- A separate **↓ Download** button exports the full pairing (metadata + both ShEx contents + focus IRIs) as a JSON file. It is enabled only after the pairing has been saved at least once.
+- Version history is shown via a **History (n)** button that appears once snapshots exist.
+
+**Pairing data model additions**
+- `shexmap:sourceFocusIri` and `shexmap:targetFocusIri` datatype properties added to `ShExMapPairing` in the ontology, model, service (GET/create/update), and frontend types. Requires a QLever index rebuild (`./scripts/rebuild-index.sh`) to take effect on the ontology.
 
 ### Data Model (RDF)
 
@@ -102,3 +128,9 @@ OAuth providers: GitHub, ORCID, Google (wired via `@fastify/oauth2`).
 QLever builds an on-disk index at startup from Turtle files — it is **not** a live-append store like Fuseki. Updates go through SPARQL UPDATE via `config.qlever.updateUrl`. If QLever's UPDATE endpoint is unavailable, the index must be rebuilt via `./scripts/rebuild-index.sh`.
 
 The index build runs in the `qlever-init` init-container and gates all other services via `depends_on: condition: service_completed_successfully`.
+
+**Index builder**: `init-index.sh` calls `/qlever/qlever-index` directly (not the `qlever` CLI wrapper, which requires a Qleverfile and fails in headless mode).
+
+**Rebuild script**: `scripts/rebuild-index.sh` bypasses the `qlever-perms`/`qlever-init` compose dependency chain entirely — it uses a plain `docker run` as root to clear the volume and rebuild, avoiding a persistent docker volume permission issue where `qlever-perms` (chmod 777) does not take effect for the subsequent `qlever-init` container mount.
+
+**No sample data by default**: `sparql/seed/` directories are empty. The QLever index starts with only the ontology triples. Add `.ttl` files under `sparql/seed/shexmaps/` or `sparql/seed/pairings/` to pre-populate on fresh index builds.

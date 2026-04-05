@@ -48,3 +48,6 @@ Thumbs.db
 docker/nginx/ssl/*.pem
 docker/nginx/ssl/*.key
 docker/nginx/ssl/*.crt
+
+# Database backups (use scripts/backup-db.sh / restore-db.sh)
+sparql/backup/

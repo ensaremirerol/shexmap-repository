@@ -27,6 +27,10 @@ shexmap:ShExMapVersion a owl:Class ;
     rdfs:label "ShExMap Version" ;
     rdfs:comment "A specific version snapshot of a ShExMap." .
 
+shexmap:ShExMapPairingVersion a owl:Class ;
+    rdfs:label "ShExMap Pairing Version" ;
+    rdfs:comment "A snapshot of a ShExMap Pairing, pinning specific ShExMap versions for source and target." .
+
 shexmap:ShExSchema a owl:Class ;
     rdfs:label "ShEx Schema" ;
     rdfs:comment "A ShEx schema defining a set of shapes for validating RDF data." .
@@ -80,15 +84,69 @@ shexmap:targetMap a owl:ObjectProperty ;
     rdfs:domain shexmap:ShExMapPairing ;
     rdfs:range shexmap:ShExMap .
 
+shexmap:sourceFocusIri a owl:DatatypeProperty ;
+    rdfs:label "source focus IRI" ;
+    rdfs:comment "The RDF node IRI used as the focus node when validating the source side of this pairing." ;
+    rdfs:domain shexmap:ShExMapPairing ;
+    rdfs:range xsd:string .
+
+shexmap:targetFocusIri a owl:DatatypeProperty ;
+    rdfs:label "target focus IRI" ;
+    rdfs:comment "The RDF node IRI used as the focus node when validating the target side of this pairing." ;
+    rdfs:domain shexmap:ShExMapPairing ;
+    rdfs:range xsd:string .
+
 shexmap:hasVersion a owl:ObjectProperty ;
     rdfs:label "has version" ;
-    rdfs:domain shexmap:ShExMapPairing ;
+    rdfs:domain shexmap:ShExMap ;
     rdfs:range shexmap:ShExMapVersion .
 
 shexmap:currentVersion a owl:ObjectProperty ;
     rdfs:label "current version" ;
-    rdfs:domain shexmap:ShExMapPairing ;
+    rdfs:domain shexmap:ShExMap ;
     rdfs:range shexmap:ShExMapVersion .
+
+shexmap:hasPairingVersion a owl:ObjectProperty ;
+    rdfs:label "has pairing version" ;
+    rdfs:domain shexmap:ShExMapPairing ;
+    rdfs:range shexmap:ShExMapPairingVersion .
+
+shexmap:currentPairingVersion a owl:ObjectProperty ;
+    rdfs:label "current pairing version" ;
+    rdfs:domain shexmap:ShExMapPairing ;
+    rdfs:range shexmap:ShExMapPairingVersion .
+
+shexmap:sourceMapVersion a owl:ObjectProperty ;
+    rdfs:label "source map version" ;
+    rdfs:comment "Pinned ShExMapVersion used on the source side of this pairing version." ;
+    rdfs:domain shexmap:ShExMapPairingVersion ;
+    rdfs:range shexmap:ShExMapVersion .
+
+shexmap:targetMapVersion a owl:ObjectProperty ;
+    rdfs:label "target map version" ;
+    rdfs:comment "Pinned ShExMapVersion used on the target side of this pairing version." ;
+    rdfs:domain shexmap:ShExMapPairingVersion ;
+    rdfs:range shexmap:ShExMapVersion .
+
+# ─── ShExMapVersion properties ───────────────────────────────────────────────
+
+shexmap:versionNumber a owl:DatatypeProperty ;
+    rdfs:label "version number" ;
+    rdfs:comment "Monotonically increasing integer version number, starting at 1." ;
+    rdfs:domain shexmap:ShExMapVersion ;
+    rdfs:range xsd:integer .
+
+shexmap:versionFile a owl:DatatypeProperty ;
+    rdfs:label "version file" ;
+    rdfs:comment "Relative path to the versioned ShEx file, e.g. bpdam/v2.shex." ;
+    rdfs:domain shexmap:ShExMapVersion ;
+    rdfs:range xsd:string .
+
+shexmap:commitMessage a owl:DatatypeProperty ;
+    rdfs:label "commit message" ;
+    rdfs:comment "Optional human-readable description of what changed in this version." ;
+    rdfs:domain shexmap:ShExMapVersion ;
+    rdfs:range xsd:string .
 
 # ─── ShExSchema properties ────────────────────────────────────────────────────
 

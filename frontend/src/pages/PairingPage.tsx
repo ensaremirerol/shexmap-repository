@@ -1,47 +1,10 @@
-import { useRef, useEffect, useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import Editor from '@monaco-editor/react';
-import type * as MonacoType from 'monaco-editor';
 import { useShExMapPairing, type ShExMap } from '../api/shexmaps.js';
 import { apiClient } from '../api/client.js';
-
-// ─── Variable coloring ────────────────────────────────────────────────────────
-
-const VAR_COLOR_PALETTE = [
-  { bg: 'rgba(239,68,68,0.3)',   border: '#ef4444' },
-  { bg: 'rgba(59,130,246,0.3)',  border: '#3b82f6' },
-  { bg: 'rgba(34,197,94,0.3)',   border: '#22c55e' },
-  { bg: 'rgba(249,115,22,0.3)',  border: '#f97316' },
-  { bg: 'rgba(168,85,247,0.3)',  border: '#a855f7' },
-  { bg: 'rgba(234,179,8,0.3)',   border: '#eab308' },
-  { bg: 'rgba(6,182,212,0.3)',   border: '#06b6d4' },
-  { bg: 'rgba(236,72,153,0.3)',  border: '#ec4899' },
-];
-
-let colorsInjected = false;
-function injectVarColors() {
-  if (colorsInjected) return;
-  colorsInjected = true;
-  const style = document.createElement('style');
-  style.textContent = VAR_COLOR_PALETTE.map((c, i) =>
-    `.shex-var-${i} { background: ${c.bg} !important; border-bottom: 2px solid ${c.border}; border-radius: 2px; }`
-  ).join('\n');
-  document.head.appendChild(style);
-}
-
-function extractVars(content: string): string[] {
-  const vars = new Set<string>();
-  // Standard: %Map:{ bp:varName %}
-  for (const m of content.matchAll(/%Map:\{\s*([^\s%{}]+)\s*%\}/g)) {
-    vars.add(m[1]!);
-  }
-  // Regex named groups with namespace: (?<ns:name>...)
-  for (const m of content.matchAll(/\(\?<([^>]+:[^>]+)>/g)) {
-    vars.add(m[1]!);
-  }
-  return [...vars];
-}
+import ShExEditor from '../components/editor/ShExEditor.js';
+import { buildVarColorMap } from '../utils/varColors.js';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -71,13 +34,10 @@ export default function PairingPage() {
   const srcContent = srcFetched ?? pairing?.sourceMap.content;
   const tgtContent = tgtFetched ?? pairing?.targetMap.content;
 
-  // Shared mapping variables → color index
+  // Shared mapping variables → color index (shown in both editors + legend)
   const varColorMap = useMemo<Map<string, number>>(() => {
     if (!srcContent || !tgtContent) return new Map();
-    const srcVars = extractVars(srcContent);
-    const tgtSet = new Set(extractVars(tgtContent));
-    const shared = srcVars.filter((v) => tgtSet.has(v));
-    return new Map(shared.map((v, i) => [v, i % VAR_COLOR_PALETTE.length]));
+    return buildVarColorMap(srcContent, tgtContent);
   }, [srcContent, tgtContent]);
 
   if (isLoading) return <div className="py-20 text-center text-slate-400 text-sm">Loading…</div>;
@@ -124,33 +84,20 @@ export default function PairingPage() {
         )}
       </div>
 
-      {/* Shared variable legend */}
-      {varColorMap.size > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-            Shared mapping variables
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[...varColorMap.entries()].map(([varName, colorIdx]) => (
-              <span
-                key={varName}
-                className="text-xs font-mono px-2 py-0.5 rounded"
-                style={{
-                  background: VAR_COLOR_PALETTE[colorIdx]!.bg,
-                  borderBottom: `2px solid ${VAR_COLOR_PALETTE[colorIdx]!.border}`,
-                }}
-              >
-                {varName}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ShEx file panels */}
       <div className="flex flex-col gap-5">
-        <ShExFilePanel map={pairing.sourceMap} role="Source" content={srcContent} varColorMap={varColorMap} />
-        <ShExFilePanel map={pairing.targetMap} role="Target" content={tgtContent} varColorMap={varColorMap} />
+        <ShExFilePanel
+          map={pairing.sourceMap}
+          role="Source"
+          content={srcContent}
+          varColorMap={varColorMap}
+        />
+        <ShExFilePanel
+          map={pairing.targetMap}
+          role="Target"
+          content={tgtContent}
+          varColorMap={varColorMap}
+        />
       </div>
     </div>
   );
@@ -169,32 +116,6 @@ function ShExFilePanel({
   content: string | undefined;
   varColorMap: Map<string, number>;
 }) {
-  const editorRef = useRef<MonacoType.editor.IStandaloneCodeEditor | null>(null);
-  const decorationsRef = useRef<MonacoType.editor.IEditorDecorationsCollection | null>(null);
-
-  const applyDecorations = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor || !content || varColorMap.size === 0) return;
-    injectVarColors();
-    decorationsRef.current?.clear();
-    const model = editor.getModel();
-    if (!model) return;
-    const newDecos: MonacoType.editor.IModelDeltaDecoration[] = [];
-    for (const [varName, colorIdx] of varColorMap) {
-      for (const match of model.findMatches(varName, true, false, true, null, true)) {
-        newDecos.push({
-          range: match.range,
-          options: { inlineClassName: `shex-var-${colorIdx}` },
-        });
-      }
-    }
-    decorationsRef.current = editor.createDecorationsCollection(newDecos);
-  }, [content, varColorMap]);
-
-  useEffect(() => {
-    applyDecorations();
-  }, [applyDecorations]);
-
   return (
     <div className="rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-white">
       {/* Panel header */}
@@ -235,22 +156,14 @@ function ShExFilePanel({
         </div>
       )}
       {content !== undefined && (
-        <Editor
-          height={400}
-          defaultLanguage="turtle"
+        <ShExEditor
           value={content}
-          options={{
-            readOnly: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            fontSize: 13,
-            lineNumbers: 'on',
-          }}
-          theme="vs-dark"
-          onMount={(editor) => {
-            editorRef.current = editor;
-            applyDecorations();
-          }}
+          mapId={map.id}
+          fileName={map.fileName}
+          fileFormat={map.fileFormat}
+          height={400}
+          readOnly={true}
+          varColorMap={varColorMap}
         />
       )}
     </div>
