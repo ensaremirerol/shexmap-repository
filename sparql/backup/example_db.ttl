@@ -1,0 +1,172 @@
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <https://w3id.org/shexmap/ontology#stars> 0 .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <https://w3id.org/shexmap/ontology#stars> 0 .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#stars> 0 .
+<https://w3id.org/shexmap/resource/version/35cd4331-79e7-4e42-9d6a-411cb265631e-v1> <https://w3id.org/shexmap/ontology#versionNumber> 1 .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v1> <https://w3id.org/shexmap/ontology#versionNumber> 1 .
+<https://w3id.org/shexmap/resource/version/f9908685-a213-419e-936d-637f4b662480-v1> <https://w3id.org/shexmap/ontology#versionNumber> 1 .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> <https://w3id.org/shexmap/ontology#versionNumber> 2 .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#targetFocusIri> "<tag:b0>@<BPunitsDAM>" .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#sourceFocusIri> "<tag:BPfhir123>@START" .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <https://schema.org/version> "1.0.0" .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <https://schema.org/version> "1.0.0" .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://schema.org/version> "1.0.2" .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <http://purl.org/dc/terms/identifier> "4952f4bb-7e28-49bb-8ef1-5b0c500f893e" .
+<https://w3id.org/shexmap/ontology#ShExMapPairing> <http://www.w3.org/2000/01/rdf-schema#comment> "A declared pairing of a source ShExMap and a target ShExMap that share map variables, enabling bidirectional RDF transformation." .
+<https://w3id.org/shexmap/ontology#ShExSchema> <http://www.w3.org/2000/01/rdf-schema#comment> "A ShEx schema defining a set of shapes for validating RDF data." .
+<https://w3id.org/shexmap/ontology#ShExMapPairingVersion> <http://www.w3.org/2000/01/rdf-schema#comment> "A snapshot of a ShExMap Pairing, pinning specific ShExMap versions for source and target." .
+<https://w3id.org/shexmap/ontology#ShExMapVersion> <http://www.w3.org/2000/01/rdf-schema#comment> "A specific version snapshot of a ShExMap." .
+<https://w3id.org/shexmap/ontology#ShExMap> <http://www.w3.org/2000/01/rdf-schema#comment> "An individual ShEx schema file that contains ShExMap annotations (%%Map:{ variable %} expressions). Can participate in one or more pairings." .
+<https://w3id.org/shexmap/ontology#belongsToSchema> <http://www.w3.org/2000/01/rdf-schema#label> "belongs to schema" .
+<https://w3id.org/shexmap/ontology#commitMessage> <http://www.w3.org/2000/01/rdf-schema#label> "commit message" .
+<https://w3id.org/shexmap/ontology#CoverageReport> <http://www.w3.org/2000/01/rdf-schema#comment> "Computed statistics on how many shapes in a schema have ShExMap coverage." .
+<https://w3id.org/shexmap/ontology#CoverageReport> <http://www.w3.org/2000/01/rdf-schema#label> "Coverage Report" .
+<https://w3id.org/shexmap/ontology#currentPairingVersion> <http://www.w3.org/2000/01/rdf-schema#label> "current pairing version" .
+<https://w3id.org/shexmap/ontology#currentVersion> <http://www.w3.org/2000/01/rdf-schema#label> "current version" .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <http://purl.org/dc/terms/title> "DAM BP" .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <http://purl.org/dc/terms/title> "FHIR - DAM BP" .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <http://purl.org/dc/terms/title> "FHIR BP" .
+<https://w3id.org/shexmap/ontology#fileFormat> <http://www.w3.org/2000/01/rdf-schema#label> "file format" .
+<https://w3id.org/shexmap/ontology#fileName> <http://www.w3.org/2000/01/rdf-schema#label> "file name" .
+<https://w3id.org/shexmap/ontology#hasPairingVersion> <http://www.w3.org/2000/01/rdf-schema#label> "has pairing version" .
+<https://w3id.org/shexmap/ontology#hasSchema> <http://www.w3.org/2000/01/rdf-schema#label> "has schema" .
+<https://w3id.org/shexmap/ontology#hasVersion> <http://www.w3.org/2000/01/rdf-schema#label> "has version" .
+<https://w3id.org/shexmap/ontology#mappingContent> <http://www.w3.org/2000/01/rdf-schema#comment> "Inline ShExMap source text, used when the map is stored directly in the triplestore rather than as a linked file." .
+<https://w3id.org/shexmap/ontology#belongsToSchema> <http://www.w3.org/2000/01/rdf-schema#comment> "Links a shape declaration to its parent schema." .
+<https://w3id.org/shexmap/ontology#hasSchema> <http://www.w3.org/2000/01/rdf-schema#comment> "Links a ShExMap to the ShEx schema whose shapes it annotates." .
+<https://w3id.org/shexmap/ontology#mappingContent> <http://www.w3.org/2000/01/rdf-schema#label> "mapping content" .
+<https://w3id.org/shexmap/ontology#versionNumber> <http://www.w3.org/2000/01/rdf-schema#comment> "Monotonically increasing integer version number, starting at 1." .
+<https://w3id.org/shexmap/ontology#stars> <http://www.w3.org/2000/01/rdf-schema#comment> "Number of times this resource has been starred by users." .
+<https://w3id.org/shexmap/ontology#commitMessage> <http://www.w3.org/2000/01/rdf-schema#comment> "Optional human-readable description of what changed in this version." .
+<https://w3id.org/shexmap/ontology> <http://purl.org/dc/terms/description> "OWL vocabulary for describing ShExMaps and their metadata in the ShExMap Repository." .
+<https://w3id.org/shexmap/ontology#sourceMapVersion> <http://www.w3.org/2000/01/rdf-schema#comment> "Pinned ShExMapVersion used on the source side of this pairing version." .
+<https://w3id.org/shexmap/ontology#targetMapVersion> <http://www.w3.org/2000/01/rdf-schema#comment> "Pinned ShExMapVersion used on the target side of this pairing version." .
+<https://w3id.org/shexmap/resource/version/35cd4331-79e7-4e42-9d6a-411cb265631e-v1> <https://w3id.org/shexmap/ontology#versionContent> "PREFIX  : <http://dam.example/med#>\r\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\r\nPREFIX bp: <http://shex.io/extensions/Map/#BPDAM->\r\nPREFIX Map: <http://shex.io/extensions/Map/#>\r\n\r\nstart = @<BPunitsDAM>\r\n\r\n<BPunitsDAM> {\r\n  :name . %Map:{ regex(/(?<bp:family>[a-zA-Z]+), (?<bp:given>[a-zA-Z]+)/) %};\r\n  :systolic {\r\n    :value xsd:float %Map:{ bp:sysVal %};\r\n    :units xsd:string %Map:{ bp:sysUnits %}\r\n  };\r\n  :diastolic {\r\n    :value xsd:float %Map:{ bp:diaVal %};\r\n    :units xsd:string %Map:{ bp:diaUnits %}\r\n  };\r\n  :someConstProp xsd:string? %Map:{ <http://abc.example/someConstant> %}\r\n}\r\n" .
+<https://w3id.org/shexmap/resource/version/f9908685-a213-419e-936d-637f4b662480-v1> <https://w3id.org/shexmap/ontology#versionContent> "PREFIX fhir: <http://hl7.org/fhir-rdf/>\r\nPREFIX sct: <http://snomed.info/sct/>\r\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\r\nPREFIX bp: <http://shex.io/extensions/Map/#BPDAM->\r\nPREFIX Map: <http://shex.io/extensions/Map/#>\r\n\r\nstart = @<BPfhir>\r\n\r\n<collector> {\r\n  fhir:item @<BPfhir>*\r\n}\r\n\r\n<Patient> {\r\n  fhir:givenName xsd:string %Map:{ bp:given %};\r\n  fhir:familyName xsd:string %Map:{ bp:family %}\r\n}\r\n\r\n<BPfhir> {\r\n  a [fhir:Observation]?;\r\n  fhir:subject @<Patient>;\r\n  fhir:coding { fhir:code [sct:Blood_Pressure] };\r\n  fhir:component @<sysBP>;\r\n  fhir:component @<diaBP>\r\n}\r\n<sysBP> {\r\n  a [fhir:Observation]?;\r\n  fhir:coding { fhir:code [sct:Systolic_Blood_Pressure] };\r\n  fhir:valueQuantity {\r\n    a [fhir:Quantity]?;\r\n    fhir:value xsd:float %Map:{ bp:sysVal %};\r\n    fhir:units xsd:string %Map:{ bp:sysUnits %}\r\n  }\r\n}\r\n<diaBP> {\r\n  a [fhir:Observation]?;\r\n  fhir:coding { fhir:code [sct:Diastolic_Blood_Pressure] };\r\n  fhir:valueQuantity {\r\n    a [fhir:Quantity]?;\r\n    fhir:value xsd:float %Map:{ bp:diaVal %};\r\n    fhir:units xsd:string %Map:{ bp:diaUnits %}\r\n  }\r\n}\r\n" .
+<https://w3id.org/shexmap/ontology#versionFile> <http://www.w3.org/2000/01/rdf-schema#comment> "Relative path to the versioned ShEx file, e.g. bpdam/v2.shex." .
+<https://w3id.org/shexmap/ontology#ShExMap> <http://www.w3.org/2000/01/rdf-schema#label> "ShEx Map" .
+<https://w3id.org/shexmap/ontology#ShExSchema> <http://www.w3.org/2000/01/rdf-schema#label> "ShEx Schema" .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <https://w3id.org/shexmap/ontology#fileFormat> "shexc" .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <https://w3id.org/shexmap/ontology#fileFormat> "shexc" .
+<https://w3id.org/shexmap/ontology#ShExMapPairing> <http://www.w3.org/2000/01/rdf-schema#label> "ShExMap Pairing" .
+<https://w3id.org/shexmap/ontology#ShExMapPairingVersion> <http://www.w3.org/2000/01/rdf-schema#label> "ShExMap Pairing Version" .
+<https://w3id.org/shexmap/ontology> <http://purl.org/dc/terms/title> "ShExMap Repository Ontology" .
+<https://w3id.org/shexmap/ontology#ShExMapVersion> <http://www.w3.org/2000/01/rdf-schema#label> "ShExMap Version" .
+<https://w3id.org/shexmap/ontology#sourceMap> <http://www.w3.org/2000/01/rdf-schema#label> "source map" .
+<https://w3id.org/shexmap/ontology#sourceMapVersion> <http://www.w3.org/2000/01/rdf-schema#label> "source map version" .
+<https://w3id.org/shexmap/ontology#stars> <http://www.w3.org/2000/01/rdf-schema#label> "stars" .
+<https://w3id.org/shexmap/ontology#targetMap> <http://www.w3.org/2000/01/rdf-schema#label> "target map" .
+<https://w3id.org/shexmap/ontology#targetMapVersion> <http://www.w3.org/2000/01/rdf-schema#label> "target map version" .
+<https://w3id.org/shexmap/ontology#fileName> <http://www.w3.org/2000/01/rdf-schema#comment> "The filename of the ShEx file, e.g. bpfhir.shex." .
+<https://w3id.org/shexmap/ontology#fileFormat> <http://www.w3.org/2000/01/rdf-schema#comment> "The ShEx serialisation format: shexc (default) or shexj." .
+<https://w3id.org/shexmap/ontology#sourceMap> <http://www.w3.org/2000/01/rdf-schema#comment> "The ShExMap on the source side of this pairing." .
+<https://w3id.org/shexmap/ontology#targetMap> <http://www.w3.org/2000/01/rdf-schema#comment> "The ShExMap on the target side of this pairing." .
+<https://w3id.org/shexmap/ontology#versionFile> <http://www.w3.org/2000/01/rdf-schema#label> "version file" .
+<https://w3id.org/shexmap/ontology#versionNumber> <http://www.w3.org/2000/01/rdf-schema#label> "version number" .
+<https://w3id.org/shexmap/ontology#coveragePercent> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#decimal> .
+<https://w3id.org/shexmap/ontology#mappedShapes> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#integer> .
+<https://w3id.org/shexmap/ontology#stars> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#integer> .
+<https://w3id.org/shexmap/ontology#totalShapes> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#integer> .
+<https://w3id.org/shexmap/ontology#versionNumber> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#integer> .
+<https://w3id.org/shexmap/ontology#commitMessage> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<https://w3id.org/shexmap/ontology#fileFormat> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<https://w3id.org/shexmap/ontology#fileName> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<https://w3id.org/shexmap/ontology#mappingContent> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<https://w3id.org/shexmap/ontology#versionFile> <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2001/XMLSchema#string> .
+<https://w3id.org/shexmap/ontology#CoverageReport> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<https://w3id.org/shexmap/ontology#ShExMap> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<https://w3id.org/shexmap/ontology#ShExMapPairing> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<https://w3id.org/shexmap/ontology#ShExMapPairingVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<https://w3id.org/shexmap/ontology#ShExMapVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<https://w3id.org/shexmap/ontology#ShExSchema> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<https://w3id.org/shexmap/ontology#commitMessage> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#coveragePercent> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#fileFormat> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#fileName> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#mappedShapes> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#mappingContent> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#stars> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#totalShapes> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#versionFile> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#versionNumber> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#DatatypeProperty> .
+<https://w3id.org/shexmap/ontology#belongsToSchema> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#currentPairingVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#currentVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#forSchema> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#hasPairingVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#hasSchema> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#hasVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#sourceMap> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#sourceMapVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#targetMap> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology#targetMapVersion> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#ObjectProperty> .
+<https://w3id.org/shexmap/ontology> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Ontology> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <http://purl.org/dc/terms/license> <https://creativecommons.org/licenses/by/4.0/> .
+<https://w3id.org/shexmap/ontology#coveragePercent> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#CoverageReport> .
+<https://w3id.org/shexmap/ontology#forSchema> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#CoverageReport> .
+<https://w3id.org/shexmap/ontology#mappedShapes> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#CoverageReport> .
+<https://w3id.org/shexmap/ontology#totalShapes> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#CoverageReport> .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#currentVersion> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#fileFormat> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#fileName> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#hasSchema> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#hasVersion> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#mappingContent> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#sourceMap> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/ontology#targetMap> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMap> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/shexmap/ontology#ShExMapPairing> .
+<https://w3id.org/shexmap/ontology#currentPairingVersion> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapPairing> .
+<https://w3id.org/shexmap/ontology#hasPairingVersion> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapPairing> .
+<https://w3id.org/shexmap/ontology#sourceMap> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapPairing> .
+<https://w3id.org/shexmap/ontology#targetMap> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapPairing> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/shexmap/ontology#ShExMapPairingVersion> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/shexmap/ontology#ShExMapPairingVersion> .
+<https://w3id.org/shexmap/ontology#sourceMapVersion> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapPairingVersion> .
+<https://w3id.org/shexmap/ontology#targetMapVersion> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapPairingVersion> .
+<https://w3id.org/shexmap/ontology#currentPairingVersion> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMapPairingVersion> .
+<https://w3id.org/shexmap/ontology#hasPairingVersion> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMapPairingVersion> .
+<https://w3id.org/shexmap/resource/version/35cd4331-79e7-4e42-9d6a-411cb265631e-v1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/resource/version/f9908685-a213-419e-936d-637f4b662480-v1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#commitMessage> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#versionFile> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#versionNumber> <http://www.w3.org/2000/01/rdf-schema#domain> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#currentVersion> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#hasVersion> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#sourceMapVersion> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#targetMapVersion> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExMapVersion> .
+<https://w3id.org/shexmap/ontology#belongsToSchema> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExSchema> .
+<https://w3id.org/shexmap/ontology#forSchema> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExSchema> .
+<https://w3id.org/shexmap/ontology#hasSchema> <http://www.w3.org/2000/01/rdf-schema#range> <https://w3id.org/shexmap/ontology#ShExSchema> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#targetMap> <https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v1> <https://w3id.org/shexmap/ontology#targetMap> <https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> <https://w3id.org/shexmap/ontology#targetMap> <https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#sourceMap> <https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v1> <https://w3id.org/shexmap/ontology#sourceMap> <https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> <https://w3id.org/shexmap/ontology#sourceMap> <https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <http://purl.org/dc/terms/creator> <https://w3id.org/shexmap/resource/user/anonymous> .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <http://purl.org/dc/terms/creator> <https://w3id.org/shexmap/resource/user/anonymous> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <http://purl.org/dc/terms/creator> <https://w3id.org/shexmap/resource/user/anonymous> .
+<https://w3id.org/shexmap/resource/version/35cd4331-79e7-4e42-9d6a-411cb265631e-v1> <http://purl.org/dc/terms/creator> <https://w3id.org/shexmap/resource/user/anonymous> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v1> <http://purl.org/dc/terms/creator> <https://w3id.org/shexmap/resource/user/anonymous> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> <http://purl.org/dc/terms/creator> <https://w3id.org/shexmap/resource/user/anonymous> .
+<https://w3id.org/shexmap/resource/version/f9908685-a213-419e-936d-637f4b662480-v1> <http://purl.org/dc/terms/creator> <https://w3id.org/shexmap/resource/user/anonymous> .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <https://w3id.org/shexmap/ontology#currentVersion> <https://w3id.org/shexmap/resource/version/35cd4331-79e7-4e42-9d6a-411cb265631e-v1> .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <https://w3id.org/shexmap/ontology#hasVersion> <https://w3id.org/shexmap/resource/version/35cd4331-79e7-4e42-9d6a-411cb265631e-v1> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#hasPairingVersion> <https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v1> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#currentPairingVersion> <https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <https://w3id.org/shexmap/ontology#hasPairingVersion> <https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <https://w3id.org/shexmap/ontology#currentVersion> <https://w3id.org/shexmap/resource/version/f9908685-a213-419e-936d-637f4b662480-v1> .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <https://w3id.org/shexmap/ontology#hasVersion> <https://w3id.org/shexmap/resource/version/f9908685-a213-419e-936d-637f4b662480-v1> .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <http://purl.org/dc/terms/created> "2026-04-05T16:19:28.842Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <http://purl.org/dc/terms/modified> "2026-04-05T16:19:28.842Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <http://purl.org/dc/terms/created> "2026-04-05T16:19:56.403Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <http://purl.org/dc/terms/modified> "2026-04-05T16:19:56.403Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/version/f9908685-a213-419e-936d-637f4b662480-v1> <http://purl.org/dc/terms/created> "2026-04-05T16:20:56.687Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/map/f9908685-a213-419e-936d-637f4b662480> <http://purl.org/dc/terms/modified> "2026-04-05T16:20:56.687Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/version/35cd4331-79e7-4e42-9d6a-411cb265631e-v1> <http://purl.org/dc/terms/created> "2026-04-05T16:20:56.727Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/map/35cd4331-79e7-4e42-9d6a-411cb265631e> <http://purl.org/dc/terms/modified> "2026-04-05T16:20:56.727Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <http://purl.org/dc/terms/created> "2026-04-05T16:20:56.750Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v1> <http://purl.org/dc/terms/created> "2026-04-05T16:22:14.389Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/version/4952f4bb-7e28-49bb-8ef1-5b0c500f893e-v2> <http://purl.org/dc/terms/created> "2026-04-05T16:22:17.177Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://w3id.org/shexmap/resource/pairing/4952f4bb-7e28-49bb-8ef1-5b0c500f893e> <http://purl.org/dc/terms/modified> "2026-04-05T16:22:17.177Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
