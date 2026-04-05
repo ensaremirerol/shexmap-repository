@@ -12,7 +12,11 @@ export default fp(async (fastify) => {
   const client = new SimpleClient({
     endpointUrl: config.qlever.sparqlUrl,
     updateUrl: config.qlever.updateUrl,
+    headers: {
+      'Authorization': `Bearer ${config.qlever.accessToken}`,
+    }
   });
+
 
   fastify.decorate('sparql', client);
 

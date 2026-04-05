@@ -28,6 +28,8 @@ declare module 'sparql-http-client' {
     constructor(options: SparqlClientOptions);
     query: Query;
     store: Store;
+    postDirect(query: string, options?: QueryOptions): Promise<Response>;
+    postUrlencoded(query: string, options?: QueryOptions): Promise<Response>;
   }
 
   export class ParsingClient {

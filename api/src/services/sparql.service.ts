@@ -46,22 +46,13 @@ export async function sparqlUpdate(
 ): Promise<void> {
   const { config } = await import('../config.js');
   const fullUpdate = `${sparqlPrefixes()}\n${update}`;
+  const client = fastify.sparql;
 
-  const url = new URL(config.qlever.updateUrl);
-  if (config.qlever.accessToken) {
-    url.searchParams.set('access-token', config.qlever.accessToken);
-  }
+  const res = await client.postUrlencoded(fullUpdate, { update: true });
 
-  const res = await fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/sparql-update' },
-    body: fullUpdate,
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`SPARQL UPDATE failed (${res.status}): ${body}`);
-  }
+  if (res && typeof (res as Response).ok !== 'undefined' && !(res as Response).ok) {
+    const body = await (res as Response).text();
+    throw new Error(`SPARQL UPDATE failed (${(res as Response).status}): ${body}`);
 }
 
 /**
