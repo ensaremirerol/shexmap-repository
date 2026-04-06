@@ -1,0 +1,23 @@
+PREFIX  : <http://w3id.org/sulo/ext/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX bp: <http://shex.io/extensions/Map/#BPDAM->
+PREFIX Map: <http://shex.io/extensions/Map/#>
+PREFIX sulo: <https://w3id.org/sulo/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+<tag:b1> 
+ sulo:hasFeature [ 
+    a :GivenName; 
+    sulo:hasValue "Alice"
+ ], [
+   a :FamilyName;
+     sulo:hasValue "Walker"
+], [
+   a :SystolicBloodPressure;
+   sulo:hasValue "110"^^xsd:float;
+   sulo:hasPart [ a sulo:Unit; rdfs:label "mmHg"^^xsd:string]
+], [
+   a :DiastolicBloodPressure;
+   sulo:hasValue "70"^^xsd:float;
+   sulo:hasPart [ a sulo:Unit; rdfs:label "mmHg"^^xsd:string]
+] .

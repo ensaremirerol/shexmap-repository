@@ -1,0 +1,43 @@
+PREFIX  : <http://w3id.org/sulo/ext/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX bp: <http://shex.io/extensions/Map/#BPDAM->
+PREFIX Map: <http://shex.io/extensions/Map/#>
+PREFIX sulo: <https://w3id.org/sulo/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+start = @<SULO_Patient>
+
+<SULO_Patient> {
+  sulo:hasFeature @<SULO_GivenName>*;
+  sulo:hasFeature @<SULO_FamilyName>* ;
+  sulo:hasFeature @<SULO_SystolicBP>* ;
+  sulo:hasFeature @<SULO_DiastolicBP>* 
+}
+<SULO_GivenName> {
+  a :GivenName;
+  sulo:hasValue xsd:string %Map:{ bp:given %}
+}
+<SULO_FamilyName> {
+  a :FamilyName;
+  sulo:hasValue xsd:string %Map:{ bp:family %}
+}
+<SULO_SystolicBP> {
+  a :SystolicBloodPressure;
+  sulo:hasValue xsd:float %Map:{ bp:sysVal %};
+  sulo:hasPart @<SULO_SBUnit>
+}
+<SULO_SBUnit> {
+  a sulo:Unit;
+  rdfs:label xsd:string %Map:{ bp:sysUnits %}
+}
+<SULO_DiastolicBP> {
+  a :DiastolicBloodPressure;
+  sulo:hasValue xsd:float %Map:{ bp:diaVal %};
+  sulo:hasPart @<SULO_DBUnit>
+}
+<SULO_DBUnit> {
+  a sulo:Unit;
+  rdfs:label xsd:string %Map:{ bp:diaUnits %}
+}
+
+
