@@ -8,6 +8,10 @@ const NAV_LINKS = [
   { to: '/query', label: 'SPARQL' },
 ];
 
+const EXTERNAL_LINKS = [
+  { href: '/api/v1/docs', label: 'API Docs' },
+];
+
 export default function NavBar() {
   const { isAuthenticated, user, logout } = useAuthStore();
   const authEnabled = import.meta.env.VITE_AUTH_ENABLED === 'true';
@@ -36,6 +40,17 @@ export default function NavBar() {
             >
               {label}
             </NavLink>
+          ))}
+          {EXTERNAL_LINKS.map(({ href, label }) => (
+            <a
+              key={href}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium px-3 py-1.5 rounded-md transition-colors text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              {label}
+            </a>
           ))}
         </div>
 
