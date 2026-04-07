@@ -53,6 +53,7 @@ export async function sparqlUpdate(
   if (res && typeof (res as Response).ok !== 'undefined' && !(res as Response).ok) {
     const body = await (res as Response).text();
     throw new Error(`SPARQL UPDATE failed (${(res as Response).status}): ${body}`);
+  }
 }
 
 /**
