@@ -113,29 +113,24 @@ const validateRoutes: FastifyPluginAsync = async (fastify) => {
             sourceShEx: {
               type: 'string',
               description: 'ShEx schema for the source shape (may contain `%Map:{ varName %}` annotations).',
-              examples: [EXAMPLE_SOURCE_SHEX],
             },
             sourceRdf: {
               type: 'string',
               description: 'Turtle-serialised RDF graph containing the source node to validate.',
-              examples: [EXAMPLE_SOURCE_RDF],
             },
             sourceNode: {
               type: 'string',
               description: 'IRI (or `IRI@ShapeLabel`) of the focus node in `sourceRdf`.',
-              examples: ['<tag:BPfhir123>@<BPfhir>'],
             },
             targetShEx: {
               type: 'string',
               description:
                 '(Optional) ShEx schema for the target shape. Required for materialisation.',
-              examples: [EXAMPLE_TARGET_SHEX],
             },
             targetNode: {
               type: 'string',
               description:
                 '(Optional) IRI (or `IRI@ShapeLabel`) for the materialised target node. Required for materialisation.',
-              examples: ['<tag:b0>@<BPunitsDAM>'],
             },
           },
           examples: [
@@ -183,16 +178,11 @@ const validateRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-    const { sourceShEx, sourceRdf, sourceNode, targetShEx, targetNode } = request.body ?? {};
-
-    if (!sourceShEx || !sourceRdf || !sourceNode) {
-      return reply.code(400).send({ error: 'sourceShEx, sourceRdf, and sourceNode are required' });
-    }
-
-    const result = await validate(sourceShEx, sourceRdf, sourceNode, targetShEx, targetNode);
-    return reply.send(result);
-  });
+      const { sourceShEx, sourceRdf, sourceNode, targetShEx, targetNode } = request.body;
+      const result = await validate(sourceShEx, sourceRdf, sourceNode, targetShEx, targetNode);
+      return reply.send(result);
+    },
+  );
 };
-
 
 export default validateRoutes;
