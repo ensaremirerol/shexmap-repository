@@ -55,12 +55,12 @@ export default function NavBar() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* <Link
-            to="/submit"
+          <Link
+            to="/maps/new"
             className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-1.5 rounded-md transition-colors"
           >
-            + Submit Map
-          </Link> */}
+            + New Map
+          </Link>
 
           {authEnabled && (
             isAuthenticated ? (

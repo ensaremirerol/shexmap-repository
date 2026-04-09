@@ -70,13 +70,16 @@ export function useCreateShExMap() {
     mutationFn: (data: {
       title: string;
       description?: string;
-      content: string;
-      sourceSchemaUrl?: string;
-      targetSchemaUrl?: string;
+      content?: string;
+      sampleTurtleData?: string;
+      fileName?: string;
+      fileFormat?: string;
+      sourceUrl?: string;
+      schemaUrl?: string;
       tags: string[];
       version: string;
       license?: string;
-    }) => apiClient.post('/shexmaps', data).then((r) => r.data),
+    }) => apiClient.post('/shexmaps', data).then((r) => r.data as ShExMap),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['shexmaps'] }),
   });
 }

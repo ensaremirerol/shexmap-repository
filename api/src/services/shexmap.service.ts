@@ -32,9 +32,7 @@ export async function listShExMaps(
   const sortVar = query.sort === 'stars' ? 'stars' : query.sort;
   const orderBy = `ORDER BY ${query.order === 'desc' ? 'DESC' : 'ASC'}(?${sortVar})`;
 
-  const sparql = `
-    SELECT ?id ?title ?description ?fileName ?fileFormat ?sourceUrl ?schemaUrl
-           ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars
+  const whereBlock = `
     WHERE {
       ?id a <${SM}ShExMap> ;
           dct:title ?title ;
@@ -50,13 +48,25 @@ export async function listShExMaps(
       OPTIONAL { ?authorId schema:name ?authorName }
       OPTIONAL { ?id <${SM}stars> ?stars }
       ${filterBlock}
-    }
+    }`;
+
+  const sparql = `
+    SELECT ?id ?title ?description ?fileName ?fileFormat ?sourceUrl ?schemaUrl
+           ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars
+    ${whereBlock}
     ${orderBy}
     LIMIT ${query.limit}
     OFFSET ${offset}
   `;
 
-  const rows = await sparqlSelect(fastify, sparql);
+  const countSparql = `SELECT (COUNT(DISTINCT ?id) AS ?total) ${whereBlock}`;
+
+  const [rows, countRows] = await Promise.all([
+    sparqlSelect(fastify, sparql),
+    sparqlSelect(fastify, countSparql),
+  ]);
+  const total = parseInt(countRows[0]?.['total']?.value ?? '0', 10);
+
   const seen = new Set<string>();
   const items: ShExMap[] = [];
   for (const r of rows) {
@@ -81,7 +91,7 @@ export async function listShExMaps(
     });
   }
 
-  return { items, total: items.length };
+  return { items, total };
 }
 
 export async function getShExMap(
@@ -271,11 +281,7 @@ export async function listShExMapPairings(
   const sortVar = query.sort === 'stars' ? 'stars' : query.sort;
   const orderBy = `ORDER BY ${query.order === 'desc' ? 'DESC' : 'ASC'}(?${sortVar})`;
 
-  const sparql = `
-    SELECT ?id ?title ?description ?license
-           ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars
-           ?srcId ?srcTitle ?srcFileName ?srcFileFormat ?srcSourceUrl ?srcSchemaUrl
-           ?tgtId ?tgtTitle ?tgtFileName ?tgtFileFormat ?tgtSourceUrl ?tgtSchemaUrl
+  const pairingWhereBlock = `
     WHERE {
       ?id a <${SM}ShExMapPairing> ;
           dct:title ?title ;
@@ -300,13 +306,27 @@ export async function listShExMapPairings(
       OPTIONAL { ?srcId <${SM}hasSchema> ?srcSchemaUrl }
       OPTIONAL { ?tgtId <${SM}hasSchema> ?tgtSchemaUrl }
       ${filterBlock}
-    }
+    }`;
+
+  const sparql = `
+    SELECT ?id ?title ?description ?license
+           ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars
+           ?srcId ?srcTitle ?srcFileName ?srcFileFormat ?srcSourceUrl ?srcSchemaUrl
+           ?tgtId ?tgtTitle ?tgtFileName ?tgtFileFormat ?tgtSourceUrl ?tgtSchemaUrl
+    ${pairingWhereBlock}
     ${orderBy}
     LIMIT ${query.limit}
     OFFSET ${offset}
   `;
 
-  const rows = await sparqlSelect(fastify, sparql);
+  const countSparql = `SELECT (COUNT(DISTINCT ?id) AS ?total) ${pairingWhereBlock}`;
+
+  const [rows, countRows] = await Promise.all([
+    sparqlSelect(fastify, sparql),
+    sparqlSelect(fastify, countSparql),
+  ]);
+  const total = parseInt(countRows[0]?.['total']?.value ?? '0', 10);
+
   const seen = new Set<string>();
   const items: ShExMapPairing[] = [];
   for (const r of rows) {
@@ -330,7 +350,7 @@ export async function listShExMapPairings(
     });
   }
 
-  return { items, total: items.length };
+  return { items, total };
 }
 
 export async function getShExMapPairing(
