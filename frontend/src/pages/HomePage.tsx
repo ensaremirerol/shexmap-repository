@@ -39,8 +39,15 @@ export default function HomePage() {
               to="/pairings/create"
               className="bg-violet-800 hover:bg-violet-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
             >
-              Create
+              New Pairing
             </Link>
+            <Link
+              to="/maps/new"
+              className="bg-violet-800 hover:bg-violet-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
+            >
+              New ShExMap
+            </Link>
+
           </div>
         </div>
       </section>
