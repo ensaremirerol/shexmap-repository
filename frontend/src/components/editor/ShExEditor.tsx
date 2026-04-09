@@ -57,6 +57,8 @@ export interface ShExEditorProps {
   onLoadServerVersion?: (versionNumber: number) => void;
   /** Called on every content change (live, debounce-free) */
   onChange?: (content: string) => void;
+  /** Called when the editor receives focus */
+  onFocus?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -74,6 +76,7 @@ export default function ShExEditor({
   isSavingServerVersion,
   onLoadServerVersion,
   onChange,
+  onFocus,
 }: ShExEditorProps) {
   const monaco = useMonaco();
   const editorRef = useRef<MonacoType.editor.IStandaloneCodeEditor | null>(null);
@@ -294,6 +297,7 @@ export default function ShExEditor({
           editorRef.current = editor;
           editor.updateOptions({ readOnly });
           applyDecorations();
+          editor.onDidFocusEditorText(() => onFocus?.());
         }}
         onChange={(val) => {
           if (val !== undefined) {

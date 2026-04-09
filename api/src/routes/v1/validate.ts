@@ -91,8 +91,8 @@ const validateRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Body: {
       sourceShEx: string;
-      sourceRdf: string;
-      sourceNode: string;
+      sourceRdf?: string;
+      sourceNode?: string;
       targetShEx?: string;
       targetNode?: string;
     };
@@ -105,10 +105,11 @@ const validateRoutes: FastifyPluginAsync = async (fastify) => {
         description:
           'Validates source RDF against a source ShEx schema, extracts `%Map:{ variable %}` bindings, ' +
           'and — when `targetShEx` and `targetNode` are supplied — materialises target RDF by substituting ' +
-          'those bindings into the target shape.',
+          'those bindings into the target shape. ' +
+          'When only `sourceShEx` is provided (no `sourceRdf`/`sourceNode`), performs a ShEx syntax-only parse check.',
         body: {
           type: 'object',
-          required: ['sourceShEx', 'sourceRdf', 'sourceNode'],
+          required: ['sourceShEx'],
           properties: {
             sourceShEx: {
               type: 'string',
@@ -116,11 +117,11 @@ const validateRoutes: FastifyPluginAsync = async (fastify) => {
             },
             sourceRdf: {
               type: 'string',
-              description: 'Turtle-serialised RDF graph containing the source node to validate.',
+              description: '(Optional) Turtle-serialised RDF graph containing the source node to validate. Omit for a ShEx syntax-only check.',
             },
             sourceNode: {
               type: 'string',
-              description: 'IRI (or `IRI@ShapeLabel`) of the focus node in `sourceRdf`.',
+              description: '(Optional) IRI (or `IRI@ShapeLabel`) of the focus node in `sourceRdf`. Required when `sourceRdf` is provided.',
             },
             targetShEx: {
               type: 'string',
@@ -148,7 +149,19 @@ const validateRoutes: FastifyPluginAsync = async (fastify) => {
             description: 'Validation result, extracted bindings, and (if requested) materialised target RDF.',
             type: 'object',
             properties: {
-              valid: { type: 'boolean', description: 'Whether source RDF validated against `sourceShEx`.' },
+              shexValid: { type: 'boolean', description: 'Whether `sourceShEx` parsed without errors.' },
+              shexErrors: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'ShEx parse error messages (empty when `shexValid` is true).',
+              },
+              rdfValid: { type: 'boolean', description: 'Whether `sourceRdf` parsed without errors (only present when `sourceRdf` was supplied).' },
+              rdfErrors: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'RDF parse error messages (only present when `sourceRdf` was supplied).',
+              },
+              valid: { type: 'boolean', description: 'Whether full validation succeeded and bindings were extracted (requires all three inputs).' },
               bindings: {
                 type: 'object',
                 description: 'Flat map of `%Map:{ variable %}` names to their extracted values.',
@@ -165,7 +178,7 @@ const validateRoutes: FastifyPluginAsync = async (fastify) => {
               errors: {
                 type: 'array',
                 items: { type: 'string' },
-                description: 'Validation error messages (empty when `valid` is true).',
+                description: 'Other error messages (e.g. missing start shape, materialisation errors).',
               },
             },
           },

@@ -27,6 +27,10 @@ export interface BindingNode {
 }
 
 export interface ValidationResult {
+  shexValid: boolean;
+  shexErrors: string[];
+  rdfValid?: boolean;
+  rdfErrors?: string[];
   valid: boolean;
   bindingTree: BindingNode[];
   bindings: Record<string, string>;
@@ -421,34 +425,43 @@ function normalizeFocusNode(raw: string): string {
 
 export async function validate(
   sourceShEx: string,
-  sourceRdf: string,
-  sourceNode: string,
+  sourceRdf?: string,
+  sourceNode?: string,
   targetShEx?: string,
   targetNode?: string,
 ): Promise<ValidationResult> {
-  const errors: string[] = [];
-
-  // Normalise focus node (strips angle brackets and @ShapeName suffix)
-  sourceNode = normalizeFocusNode(sourceNode);
-  if (targetNode) targetNode = normalizeFocusNode(targetNode);
-
   // 1. Parse source ShEx
   let schema: any;
   try {
     schema = shexParserLib.construct(SHAPE_BASE, {}).parse(sourceShEx);
   } catch (e: any) {
-    return { valid: false, bindingTree: [], bindings: {}, errors: [`ShEx parse error: ${String(e.message)}`] };
+    const msg = `ShEx parse error: ${String(e.message)}`;
+    return { shexValid: false, shexErrors: [msg], valid: false, bindingTree: [], bindings: {}, errors: [msg] };
+  }
+
+  // ShEx-only check — no RDF provided
+  if (!sourceRdf || sourceRdf.trim() === '') {
+    return { shexValid: true, shexErrors: [], valid: true, bindingTree: [], bindings: {}, errors: [] };
   }
 
   // 2. Parse source RDF
-  let store: Store;
+  const store = new Store();
   try {
-    store = new Store();
     const rdfParser = new N3Parser({ baseIRI: 'http://example.org/' });
     store.addQuads(rdfParser.parse(sourceRdf));
   } catch (e: any) {
-    return { valid: false, bindingTree: [], bindings: {}, errors: [`RDF parse error: ${String(e.message)}`] };
+    const msg = `RDF parse error: ${String(e.message)}`;
+    return { shexValid: true, shexErrors: [], rdfValid: false, rdfErrors: [msg], valid: false, bindingTree: [], bindings: {}, errors: [msg] };
   }
+
+  // RDF provided but no focus node — return shex + rdf validation only
+  if (!sourceNode || sourceNode.trim() === '') {
+    return { shexValid: true, shexErrors: [], rdfValid: true, rdfErrors: [], valid: false, bindingTree: [], bindings: {}, errors: [] };
+  }
+
+  // Normalise focus node (strips angle brackets and @ShapeName suffix)
+  sourceNode = normalizeFocusNode(sourceNode);
+  if (targetNode) targetNode = normalizeFocusNode(targetNode);
 
   // 3. Build prefix map directly from ShExC text (parser's schema.prefixes is unreliable at alpha.28)
   const prefixes = extractPrefixes(sourceShEx);
@@ -456,7 +469,7 @@ export async function validate(
   // 4. Find start shape and walk
   const startId: string | undefined = schema.start;
   if (!startId) {
-    return { valid: false, bindingTree: [], bindings: {}, errors: ['No start shape defined in ShEx schema'] };
+    return { shexValid: true, shexErrors: [], rdfValid: true, rdfErrors: [], valid: false, bindingTree: [], bindings: {}, errors: ['No start shape defined in ShEx schema'] };
   }
 
   const bindingTree = [walkShape(startId, sourceNode, schema, store, prefixes, new Set())];
@@ -472,6 +485,7 @@ export async function validate(
   bindingTree.forEach(flatten);
 
   // 6. Materialize target if requested
+  const errors: string[] = [];
   let targetRdf: string | undefined;
   if (targetShEx) {
     try {
@@ -495,6 +509,10 @@ export async function validate(
   }
 
   return {
+    shexValid: true,
+    shexErrors: [],
+    rdfValid: true,
+    rdfErrors: [],
     valid: Object.keys(bindings).length > 0,
     bindingTree,
     bindings,

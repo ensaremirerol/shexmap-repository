@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Editor from '@monaco-editor/react';
+import Editor, { useMonaco } from '@monaco-editor/react';
 import axios from 'axios';
 import {
   useShExMap,
@@ -12,63 +12,24 @@ import {
 } from '../api/shexmaps.js';
 import { apiClient } from '../api/client.js';
 import ShExEditor from '../components/editor/ShExEditor.js';
+import { registerTurtleLanguage, TURTLE_LANGUAGE_ID } from '../utils/turtleLanguage.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface BindingEntry { variable: string; value: string; datatype?: string }
 interface BindingNode  { shape: string; focus: string; bindings: BindingEntry[]; children: BindingNode[] }
 interface ValidationResult {
+  shexValid: boolean;
+  shexErrors: string[];
+  rdfValid?: boolean;
+  rdfErrors?: string[];
   valid: boolean;
   bindingTree: BindingNode[];
   bindings: Record<string, string>;
   errors: string[];
 }
 
-// ─── Turtle auto-generate ─────────────────────────────────────────────────────
-
-function extractVarsFromShex(shexContent: string): string[] {
-  const vars: string[] = [];
-  for (const m of shexContent.matchAll(/%Map:\{\s*([\w:]+)\s*%\}/g)) {
-    if (m[1] && !vars.includes(m[1])) vars.push(m[1]);
-  }
-  return vars;
-}
-
-function autoGenerateTurtle(shexContent: string): string {
-  const prefixLines: string[] = [
-    '@prefix ex: <http://example.org/> .',
-    '@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .',
-  ];
-  const vars = extractVarsFromShex(shexContent);
-
-  for (const m of shexContent.matchAll(/PREFIX\s+(\w+):\s*<([^>]+)>/gi)) {
-    prefixLines.push(`@prefix ${m[1]}: <${m[2]}> .`);
-  }
-
-  const shapes: string[] = [];
-  for (const m of shexContent.matchAll(/<([^>]+)>\s*\{|\b([A-Za-z_][\w]*:[A-Za-z_][\w]*)\s*\{/g)) {
-    const name = m[1] || m[2];
-    if (name) shapes.push(name);
-  }
-
-  const varComment = vars.length > 0
-    ? `\n# Map variables to bind: ${vars.join(', ')}\n`
-    : '';
-
-  const instances = shapes.slice(0, 3).map((shape, i) => {
-    const nodeIri = `ex:node${i + 1}`;
-    const typeTriple = shape.startsWith('http') || shape.startsWith('https')
-      ? `  a <${shape}> ;`
-      : `  a ${shape} ;`;
-    return `${nodeIri}\n${typeTriple}\n  # add required properties here\n  .`;
-  });
-
-  if (instances.length === 0) {
-    instances.push('ex:node1\n  a ex:Thing ;\n  # add required properties here\n  .');
-  }
-
-  return [prefixLines.join('\n'), varComment, ...instances].join('\n') + '\n';
-}
+type ValidationMode = 'shex' | 'rdf' | 'full';
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
 
@@ -111,6 +72,26 @@ function saveFocus(mapId: string, iri: string) {
 
 // ─── Validation result display ────────────────────────────────────────────────
 
+function ValidationBadge({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+      ok ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
+    }`}>
+      <span>{ok ? '✓' : '✗'}</span>
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function ValidationSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{title}</div>
+      {children}
+    </div>
+  );
+}
+
 function BindingNodeView({ node, depth = 0 }: { node: BindingNode; depth?: number }) {
   const [open, setOpen] = useState(true);
   const hasContent = node.bindings.length > 0 || node.children.length > 0;
@@ -142,47 +123,66 @@ function BindingNodeView({ node, depth = 0 }: { node: BindingNode; depth?: numbe
   );
 }
 
-function ValidationResult({ result }: { result: ValidationResult }) {
+function ValidationPanel({ result, mode }: { result: ValidationResult; mode: ValidationMode }) {
   const bindingCount = Object.keys(result.bindings).length;
   return (
-    <div className="space-y-3 px-5 py-4">
+    <div className="space-y-4 px-5 py-4">
+      {/* ShEx Validation */}
+      <ValidationSection title="ShEx Validation">
+        <ValidationBadge ok={result.shexValid} label={result.shexValid ? 'Valid' : 'Error'} />
+        {result.shexErrors.map((e, i) => (
+          <div key={i} className="text-red-700 text-xs font-mono bg-red-50 border border-red-200 px-3 py-2 rounded mt-1 whitespace-pre-wrap">{e}</div>
+        ))}
+      </ValidationSection>
+
+      {/* Turtle Validation — shown when RDF was provided */}
+      {(mode === 'rdf' || mode === 'full') && result.rdfValid !== undefined && (
+        <ValidationSection title="Turtle Validation">
+          <ValidationBadge ok={result.rdfValid} label={result.rdfValid ? 'Valid' : 'Error'} />
+          {(result.rdfErrors ?? []).map((e, i) => (
+            <div key={i} className="text-red-700 text-xs font-mono bg-red-50 border border-red-200 px-3 py-2 rounded mt-1 whitespace-pre-wrap">{e}</div>
+          ))}
+        </ValidationSection>
+      )}
+
+      {/* Other errors (e.g. no start shape, materialisation) */}
       {result.errors.length > 0 && (
-        <div className="text-red-700 text-sm bg-red-50 border border-red-200 px-4 py-3 rounded-lg space-y-1">
+        <div className="text-amber-700 text-xs bg-amber-50 border border-amber-200 px-3 py-2 rounded space-y-1">
           {result.errors.map((e, i) => <div key={i}>{e}</div>)}
         </div>
       )}
-      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium border ${
-        result.valid ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'
-      }`}>
-        <span>{result.valid ? '✓' : '⚠'}</span>
-        <span>{result.valid
-          ? `${bindingCount} binding${bindingCount !== 1 ? 's' : ''} extracted`
-          : 'No bindings found — check ShEx syntax and focus node'}
-        </span>
-      </div>
-      {bindingCount > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Extracted Bindings</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-            {Object.entries(result.bindings).map(([variable, value]) => (
-              <div key={variable} className="flex items-start gap-2 text-xs font-mono py-0.5">
-                <span className="text-amber-600 truncate shrink-0 max-w-[180px]" title={variable}>
-                  {variable.split(/[#>]/).pop() ?? variable}
-                </span>
-                <span className="text-slate-400">=</span>
-                <span className="text-emerald-700 font-semibold break-all">{value}</span>
+
+      {/* Bindings — full mode only */}
+      {mode === 'full' && (
+        <ValidationSection title={`Bindings — ${bindingCount} extracted`}>
+          {bindingCount === 0 ? (
+            <span className="text-xs text-slate-400 italic">No bindings found — check ShEx Map annotations and focus node</span>
+          ) : (
+            <>
+              <div className="bg-white rounded-lg border border-slate-200 px-4 py-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                  {Object.entries(result.bindings).map(([variable, value]) => (
+                    <div key={variable} className="flex items-start gap-2 text-xs font-mono py-0.5">
+                      <span className="text-amber-600 truncate shrink-0 max-w-[180px]" title={variable}>
+                        {variable.split(/[#>]/).pop() ?? variable}
+                      </span>
+                      <span className="text-slate-400">=</span>
+                      <span className="text-emerald-700 font-semibold break-all">{value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {result.bindingTree.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Binding Tree</div>
-          <div className="font-mono text-xs space-y-0.5">
-            {result.bindingTree.map((n, i) => <BindingNodeView key={i} node={n} depth={0} />)}
-          </div>
-        </div>
+              {result.bindingTree.length > 0 && (
+                <div className="bg-white rounded-lg border border-slate-200 px-4 py-3">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Binding Tree</div>
+                  <div className="font-mono text-xs space-y-0.5">
+                    {result.bindingTree.map((n, i) => <BindingNodeView key={i} node={n} depth={0} />)}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </ValidationSection>
       )}
     </div>
   );
@@ -195,8 +195,10 @@ function TurtlePanel({
   shexContent,
   turtleContent,
   focusNode,
+  validationMode,
   onChangeTurtle,
   onChangeFocusNode,
+  onActivate,
   onValidate,
   isValidating,
   validationResult,
@@ -206,63 +208,61 @@ function TurtlePanel({
   shexContent: string;
   turtleContent: string;
   focusNode: string;
+  validationMode: ValidationMode;
   onChangeTurtle: (v: string) => void;
   onChangeFocusNode: (v: string) => void;
+  onActivate: () => void;
   onValidate: () => void;
   isValidating: boolean;
   validationResult: ValidationResult | null;
   validationError: string;
 }) {
-  function handleAutoGenerate() {
-    const stub = autoGenerateTurtle(shexContent);
-    onChangeTurtle(stub);
-    saveTurtle(mapId, stub);
-  }
+  const monaco = useMonaco();
+  useEffect(() => { if (monaco) registerTurtleLanguage(monaco); }, [monaco]);
 
   function handleChange(v: string) {
+    onActivate();
     onChangeTurtle(v);
     saveTurtle(mapId, v);
   }
 
-  const canValidate = !!shexContent && !!turtleContent && !!focusNode;
+  const buttonLabel = isValidating ? 'Validating…'
+    : validationMode === 'shex' ? 'Validate ShEx'
+    : validationMode === 'rdf'  ? 'Validate RDF'
+    : 'Validate';
+
+  const canValidate = validationMode === 'shex' ? !!shexContent
+    : validationMode === 'rdf'  ? !!shexContent && !!turtleContent
+    : !!shexContent && !!turtleContent && !!focusNode;
 
   return (
     <div className="border-t border-slate-700">
       {/* Turtle header */}
       <div className="flex items-center justify-between bg-slate-800 px-3 py-2 gap-2">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Sample Turtle Data</span>
-        <div className="flex gap-2 ml-auto">
-          {shexContent && (
-            <button
-              onClick={handleAutoGenerate}
-              className="text-xs px-2 py-0.5 rounded bg-slate-600 text-slate-300 hover:bg-slate-500 transition-colors"
-            >
-              Auto-generate
-            </button>
-          )}
-          {turtleContent && (
-            <button
-              onClick={() => {
-                const blob = new Blob([turtleContent], { type: 'text/turtle' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `${mapId}.ttl`; a.click();
-                URL.revokeObjectURL(url);
-              }}
-              className="text-xs px-2 py-0.5 rounded bg-slate-600 text-slate-300 hover:bg-slate-500 transition-colors"
-            >
-              ↓ Download
-            </button>
-          )}
-        </div>
+        {turtleContent && (
+          <button
+            onClick={() => {
+              const blob = new Blob([turtleContent], { type: 'text/turtle' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; a.download = `${mapId}.ttl`; a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="text-xs px-2 py-0.5 rounded bg-slate-600 text-slate-300 hover:bg-slate-500 transition-colors ml-auto"
+          >
+            ↓ Download
+          </button>
+        )}
       </div>
       <Editor
         height={200}
-        defaultLanguage="plaintext"
-        language="plaintext"
+        defaultLanguage={TURTLE_LANGUAGE_ID}
+        language={TURTLE_LANGUAGE_ID}
         value={turtleContent}
         onChange={(v) => handleChange(v ?? '')}
-        theme="vs-dark"
+        onMount={(editor) => { editor.onDidFocusEditorText(onActivate); }}
+        theme="shex-dark"
         options={{ minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 12, wordWrap: 'on' }}
       />
       {/* Focus IRI + Validate */}
@@ -271,17 +271,17 @@ function TurtlePanel({
         <input
           type="text"
           value={focusNode}
-          onChange={(e) => { onChangeFocusNode(e.target.value); saveFocus(mapId, e.target.value); }}
+          onFocus={onActivate}
+          onChange={(e) => { onActivate(); onChangeFocusNode(e.target.value); saveFocus(mapId, e.target.value); }}
           placeholder="e.g. ex:node1 or <http://example.org/node1> or <...>@START"
           className="flex-1 text-xs font-mono bg-slate-700 text-slate-200 placeholder-slate-500 border border-slate-600 rounded px-2 py-1 focus:outline-none focus:border-violet-400"
         />
         <button
           onClick={onValidate}
           disabled={isValidating || !canValidate}
-          title={canValidate ? 'Validate this ShExMap against the sample data' : 'Add ShEx content, Turtle data, and Focus IRI to validate'}
           className="shrink-0 text-xs px-2.5 py-1 rounded bg-violet-600 hover:bg-violet-500 text-white font-medium disabled:opacity-40 transition-colors"
         >
-          {isValidating ? 'Validating…' : 'Validate'}
+          {buttonLabel}
         </button>
       </div>
       {/* Validation results */}
@@ -290,7 +290,7 @@ function TurtlePanel({
           {validationError && (
             <div className="px-5 py-3 text-red-700 text-xs bg-red-50 border-b border-red-200">{validationError}</div>
           )}
-          {validationResult && <ValidationResult result={validationResult} />}
+          {validationResult && <ValidationPanel result={validationResult} mode={validationMode} />}
         </div>
       )}
     </div>
@@ -391,10 +391,16 @@ export default function ShExMapPage() {
 
   const [turtle, setTurtle]       = useState('');
   const [focusNode, setFocusNode] = useState('');
+  const [activePanel, setActivePanel] = useState<'shex' | 'turtle'>('shex');
 
   const [validating, setValidating]         = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validationError, setValidationError]   = useState('');
+
+  const validationMode: ValidationMode =
+    (shexContent && turtle && focusNode) ? 'full' :
+    (activePanel === 'turtle' || (shexContent && turtle)) ? 'rdf' :
+    'shex';
 
   // Fetch file content when map has a fileName but no inline content
   const { data: fileContent } = useQuery<string>({
@@ -444,11 +450,14 @@ export default function ShExMapPage() {
     setValidationError('');
     setValidationResult(null);
     try {
-      const { data } = await axios.post<ValidationResult>('/api/v1/validate', {
-        sourceShEx: shexContent,
-        sourceRdf: turtle,
-        sourceNode: focusNode,
-      });
+      const mode: ValidationMode =
+        (shexContent && turtle && focusNode) ? 'full' :
+        (activePanel === 'turtle' || (shexContent && turtle)) ? 'rdf' :
+        'shex';
+      const body: Record<string, string> = { sourceShEx: shexContent };
+      if (mode === 'rdf' || mode === 'full') body['sourceRdf'] = turtle;
+      if (mode === 'full') body['sourceNode'] = focusNode;
+      const { data } = await axios.post<ValidationResult>('/api/v1/validate', body);
       setValidationResult(data);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } }; message?: string };
@@ -456,7 +465,7 @@ export default function ShExMapPage() {
     } finally {
       setValidating(false);
     }
-  }, [shexContent, turtle, focusNode]);
+  }, [shexContent, turtle, focusNode, activePanel]);
 
   async function handleLoadVersion(vn: number) {
     try {
@@ -587,6 +596,7 @@ export default function ShExMapPage() {
           isSavingServerVersion={saveVersion.isPending}
           onLoadServerVersion={handleLoadVersion}
           onChange={setShexContent}
+          onFocus={() => setActivePanel('shex')}
         />
 
         {/* Turtle + Focus IRI + Validate */}
@@ -595,8 +605,10 @@ export default function ShExMapPage() {
           shexContent={shexContent}
           turtleContent={turtle}
           focusNode={focusNode}
+          validationMode={validationMode}
           onChangeTurtle={setTurtle}
           onChangeFocusNode={setFocusNode}
+          onActivate={() => setActivePanel('turtle')}
           onValidate={handleValidate}
           isValidating={validating}
           validationResult={validationResult}
