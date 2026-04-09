@@ -334,7 +334,11 @@ const shexmapsRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = ShExMapIdSchema.parse(request.params);
     const existing = await getShExMap(fastify, id);
     if (!existing) return reply.notFound(`ShExMap ${id} not found`);
-    const data = ShExMapUpdateSchema.parse(request.body);
+    // Strip empty-string URL fields — Zod's .url() rejects "" but the form sends it when cleared
+    const raw = { ...request.body as Record<string, unknown> };
+    if (raw['schemaUrl'] === '') delete raw['schemaUrl'];
+    if (raw['sourceUrl'] === '') delete raw['sourceUrl'];
+    const data = ShExMapUpdateSchema.parse(raw);
     const updated = await updateShExMap(fastify, id, data);
     return updated;
   });

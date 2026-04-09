@@ -194,10 +194,10 @@ export async function updateShExMap(
   const iri = `${RM}${id}`;
   const now = new Date().toISOString();
 
-  // Build per-field conditional DELETE/INSERT/WHERE — only touch fields present in data.
+  // Build DELETE/WHERE + INSERT DATA separately (QLever does not support combined DELETE/INSERT/WHERE).
   const del: string[] = [];
-  const ins: string[] = [];
   const whr: string[] = [];
+  const ins: string[] = [];
 
   if (data.title !== undefined) {
     del.push(`<${iri}> dct:title ?title .`);
@@ -240,10 +240,10 @@ export async function updateShExMap(
   ins.push(`<${iri}> dct:modified "${now}"^^xsd:dateTime .`);
 
   await sparqlUpdate(fastify, `
-    DELETE { ${del.join(' ')} }
-    INSERT { ${ins.join(' ')} }
-    WHERE  { ${whr.join(' ')} }
+    DELETE { ${del.join('\n      ')} }
+    WHERE  { ${whr.join('\n      ')} }
   `);
+  await sparqlUpdate(fastify, `INSERT DATA { ${ins.join('\n    ')} }`);
 
   return getShExMap(fastify, id);
 }
