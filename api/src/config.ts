@@ -40,6 +40,11 @@ export const config = {
     accessToken: optional('QLEVER_ACCESS_TOKEN', ''),
   },
 
+  rateLimit: {
+    max: parseInt(optional('RATE_LIMIT_MAX', '200'), 10),
+    timeWindow: optional('RATE_LIMIT_WINDOW', '1 minute'),
+  },
+
   rdf: {
     /** Base namespace for all project IRIs, e.g. https://w3id.org/shexmap/ */
     baseNamespace: optional('BASE_NAMESPACE', 'https://w3id.org/shexmap/'),
