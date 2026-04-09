@@ -6,6 +6,7 @@ import type {
 } from '../models/shexmap.model.js';
 import { sparqlSelect, sparqlUpdate } from './sparql.service.js';
 import { validateShExMap } from './shex.service.js';
+import { saveNewVersion } from './version.service.js';
 import { PREFIXES } from '../rdf/prefixes.js';
 
 const RM   = PREFIXES.shexrmap;
@@ -176,6 +177,9 @@ export async function createShExMap(
   `;
 
   await sparqlUpdate(fastify, update);
+  if (data.content) {
+    await saveNewVersion(fastify, id, authorId, data.content, 'Initial version');
+  }
   return (await getShExMap(fastify, id)) ?? {
     id, ...data, content: data.content, authorId, authorName: '',
     createdAt: now, modifiedAt: now, stars: 0,
