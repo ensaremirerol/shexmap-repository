@@ -142,6 +142,12 @@ shexmap:commitMessage a owl:DatatypeProperty ;
     rdfs:domain shexmap:ShExMapVersion ;
     rdfs:range xsd:string .
 
+shexmap:githubSha a owl:DatatypeProperty ;
+    rdfs:label "GitHub blob SHA" ;
+    rdfs:comment "The Git blob SHA of the harvested file as returned by the GitHub API. Used by the harvester to detect content changes on subsequent runs without re-downloading unchanged files." ;
+    rdfs:domain shexmap:ShExMap ;
+    rdfs:range xsd:string .
+
 # ─── ShExSchema properties ────────────────────────────────────────────────────
 
 shexmap:belongsToSchema a owl:ObjectProperty ;

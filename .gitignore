@@ -53,3 +53,9 @@ docker/nginx/ssl/*.crt
 
 # Database backups (use scripts/backup-db.sh / restore-db.sh)
 sparql/backup/
+
+# Harvested .shex.gz files (collected by scripts/collect-github-shex.ts)
+sparql/files/
+
+# Harvester state (tracks imported blob SHAs for incremental runs)
+.harvest-state.json

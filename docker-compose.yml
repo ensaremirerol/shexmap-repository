@@ -68,6 +68,43 @@ services:
       - shexmap-net
     restart: unless-stopped
 
+  # ─── GitHub ShEx Harvester (opt-in) ───────────────────────────────────────
+  # Periodically crawls GitHub for .shex files containing %Map: annotations
+  # and imports them via the REST API. Off by default; enable with:
+  #   docker compose --profile harvester up
+  #
+  # Required env vars: GITHUB_TOKEN (strongly recommended for higher rate limits)
+  # Optional: HARVESTER_API_KEY (when AUTH_ENABLED=true), HARVEST_INTERVAL_HOURS
+  harvester:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    profiles: ["harvester"]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        INTERVAL=$${HARVEST_INTERVAL_HOURS:-24}
+        echo "[harvester] Starting — interval=${INTERVAL}h"
+        while true; do
+          npx tsx scripts/collect-github-shex.ts \
+            --api-url "http://api:3000/api/v1" \
+            --sparql-url "http://qlever:7001/sparql" \
+            ${GITHUB_TOKEN:+--token "$GITHUB_TOKEN"} \
+            ${HARVESTER_API_KEY:+--api-key "$HARVESTER_API_KEY"}
+          echo "[harvester] Next run in $${INTERVAL}h"
+          sleep $$(( INTERVAL * 3600 ))
+        done
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      qlever-init:
+        condition: service_completed_successfully
+    networks:
+      - shexmap-net
+    restart: unless-stopped
+
 volumes:
   qlever-data:
 
