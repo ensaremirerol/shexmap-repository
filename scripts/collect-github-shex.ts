@@ -48,16 +48,26 @@
  *   ~10 req/min unauthenticated / ~30 req/min authenticated.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { gzip } from 'zlib';
-import { promisify } from 'util';
-
-const gzipAsync = promisify(gzip);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
+
+// ─── Load .env from repo root (if present) ───────────────────────────────────
+const dotenvPath = resolve(REPO_ROOT, '.env');
+if (existsSync(dotenvPath)) {
+  for (const line of readFileSync(dotenvPath, 'utf-8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim().replace(/^(['"])(.*)\1$/, '$2');
+    if (!(key in process.env)) process.env[key] = val;
+  }
+}
 
 // ─── Argument parsing ─────────────────────────────────────────────────────────
 
@@ -83,12 +93,15 @@ const GH_DELAY_MS  = parseInt(opt('github-delay',  undefined,             '1000'
 const LIMIT        = parseInt(opt('limit',         undefined,             '0')!, 10);
 const DRY_RUN      = flag('dry-run');
 const FORCE        = flag('force');
+const FROM_DISK    = flag('from-disk');
 const FETCH_TOPICS = flag('fetch-topics');
 const SPARQL_URL   = opt('sparql-url',    'QLEVER_SPARQL_URL');
-const STATE_FILE   = resolve(opt('state-file', undefined, resolve(REPO_ROOT, '.harvest-state.json'))!);
+const STATE_FILE       = resolve(opt('state-file', undefined, resolve(REPO_ROOT, '.harvest-state.json'))!);
 // Empty string disables file saving; undefined uses the default path
-const OUTPUT_DIR_RAW = opt('output-dir', undefined, join(REPO_ROOT, 'sparql', 'files', 'github'));
-const OUTPUT_DIR     = OUTPUT_DIR_RAW === '' ? null : resolve(OUTPUT_DIR_RAW!);
+const OUTPUT_DIR_RAW   = opt('output-dir',     undefined, join(REPO_ROOT, 'sparql', 'files', 'github'));
+const OUTPUT_DIR       = OUTPUT_DIR_RAW   === '' ? null : resolve(OUTPUT_DIR_RAW!);
+const MAP_OUTPUT_DIR_RAW = opt('map-output-dir', undefined, join(REPO_ROOT, 'sparql', 'files', 'github-maps'));
+const MAP_OUTPUT_DIR   = MAP_OUTPUT_DIR_RAW === '' ? null : resolve(MAP_OUTPUT_DIR_RAW!);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -314,31 +327,20 @@ function extractDescription(content: string): string | undefined {
   return desc.length > 0 ? desc.slice(0, 2000) : undefined;
 }
 
-// ─── Compressed file storage ─────────────────────────────────────────────────
+// ─── File storage ─────────────────────────────────────────────────────────────
 
 /**
- * Save a .shex file as gzip-compressed to:
- *   {OUTPUT_DIR}/{owner}/{repo}/{path/to/file.shex}.gz
+ * Save a .shex file to:
+ *   {dir}/{owner}/{repo}/{path/to/file.shex}
  *
  * Mirrors the GitHub repo tree so provenance is preserved on disk.
- * Returns the absolute path written, or null if OUTPUT_DIR is disabled.
+ * Returns the absolute path written, or null if dir is null (disabled).
  */
-async function saveCompressed(
-  fullName: string,
-  filePath: string,
-  content: string,
-): Promise<string | null> {
-  if (!OUTPUT_DIR) return null;
-
-  // Build destination path, e.g. sparql/files/github/owner/repo/path/to/file.shex.gz
-  const destPath = join(OUTPUT_DIR, fullName, `${filePath}.gz`);
-  const destDir  = dirname(destPath);
-
-  mkdirSync(destDir, { recursive: true });
-
-  const compressed = await gzipAsync(Buffer.from(content, 'utf-8'));
-  writeFileSync(destPath, compressed);
-
+function saveFile(dir: string | null, fullName: string, filePath: string, content: string): string | null {
+  if (!dir) return null;
+  const destPath = join(dir, fullName, filePath);
+  mkdirSync(dirname(destPath), { recursive: true });
+  writeFileSync(destPath, content, 'utf-8');
   return destPath;
 }
 
@@ -401,21 +403,167 @@ async function saveNewVersion(mapId: string, content: string, commitMessage: str
   }
 }
 
+// ─── Directory walker ─────────────────────────────────────────────────────────
+
+function* walkDir(dir: string): Generator<string> {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) yield* walkDir(full);
+    else yield full;
+  }
+}
+
+// ─── Shared import logic ──────────────────────────────────────────────────────
+
+async function importMapFile(
+  stateKey: string,
+  fileName: string,
+  content: string,
+  sourceUrl: string,
+  existingMapId: string | undefined,
+  state: HarvestState,
+  counters: { imported: number; updated: number; skipped: number; failed: number },
+): Promise<void> {
+  const title = extractTitle(content, fileName);
+  const description = extractDescription(content);
+  const tags = ['github-harvested'];
+
+  const payload: ImportPayload = {
+    title, description, content,
+    fileName,
+    fileFormat: 'shexc',
+    sourceUrl,
+    tags,
+    version: '1.0.0',
+  };
+
+  if (DRY_RUN) {
+    const action = existingMapId ? 'would-update' : 'would-import';
+    console.log(`  [${action}] ${stateKey}`);
+    console.log(`    title  : ${title}`);
+    console.log(`    source : ${sourceUrl}`);
+    console.log(`    size   : ${content.length.toLocaleString()} chars`);
+    counters.imported++;
+    return;
+  }
+
+  try {
+    await sleep(DELAY_MS);
+
+    if (existingMapId) {
+      await saveNewVersion(existingMapId, content, 'Harvested update from disk');
+      console.log(`  [updated] ${stateKey}  id=${existingMapId}`);
+      state.harvested[stateKey] = { ...state.harvested[stateKey], importedAt: new Date().toISOString() };
+      counters.updated++;
+    } else {
+      const result = await importShExMap(payload);
+      if (result) {
+        console.log(`  [imported] ${stateKey}  id=${result.id}`);
+        state.harvested[stateKey] = {
+          sha: state.harvested[stateKey]?.sha ?? '',
+          mapId: result.id,
+          importedAt: new Date().toISOString(),
+          sourceUrl,
+        };
+        counters.imported++;
+      } else {
+        console.log(`  [skip-dup] ${stateKey} — API returned 409`);
+        counters.skipped++;
+      }
+    }
+    saveState(state);
+  } catch (err) {
+    const cause = (err as NodeJS.ErrnoException & { cause?: unknown }).cause;
+    const detail = cause instanceof Error ? cause.message : cause ? String(cause) : '';
+    console.error(`  [error] import ${stateKey}: ${err}${detail ? ` (${detail})` : ''}`);
+    counters.failed++;
+  }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
+
+function printSummary(counters: { imported: number; updated: number; skipped: number; savedOnly?: number; failed: number }): void {
+  console.log('');
+  console.log('─────────────────────────────────────────────');
+  console.log(`  Imported (new)    : ${counters.imported}`);
+  console.log(`  Updated (new ver) : ${counters.updated}`);
+  console.log(`  Skipped (unchanged): ${counters.skipped}`);
+  if (counters.savedOnly !== undefined) {
+    console.log(`  Saved only (no %Map): ${counters.savedOnly}`);
+  }
+  console.log(`  Failed            : ${counters.failed}`);
+  console.log('─────────────────────────────────────────────');
+}
+
+async function mainFromDisk(): Promise<void> {
+  if (!MAP_OUTPUT_DIR || !existsSync(MAP_OUTPUT_DIR)) {
+    console.error(`[fatal] Map output dir not found: ${MAP_OUTPUT_DIR}`);
+    process.exit(1);
+  }
+
+  console.log(`[from-disk] Scanning ${MAP_OUTPUT_DIR}`);
+  const state = FORCE ? { version: 1 as const, harvested: {} } : loadState();
+  const counters = { imported: 0, updated: 0, skipped: 0, failed: 0 };
+
+  for (const filePath of walkDir(MAP_OUTPUT_DIR)) {
+    if (!filePath.endsWith('.shex')) continue;
+
+    // Derive stateKey from path: MAP_OUTPUT_DIR/{owner}/{repo}/{...rest}
+    const rel = filePath.slice(MAP_OUTPUT_DIR.length + 1); // owner/repo/path/to/file.shex
+    const parts = rel.split('/');
+    if (parts.length < 3) continue;
+    const fullName = `${parts[0]}/${parts[1]}`;         // owner/repo
+    const filePart = parts.slice(2).join('/');           // path/to/file.shex
+    const stateKey = `${fullName}:${filePart}`;
+    const fileName = parts[parts.length - 1];
+
+    const existing = state.harvested[stateKey];
+    if (!FORCE && existing?.mapId) {
+      countSkippedInc(counters);
+      continue;
+    }
+
+    const sourceUrl = existing?.sourceUrl
+      ?? `https://raw.githubusercontent.com/${fullName}/HEAD/${filePart}`;
+
+    const content = readFileSync(filePath, 'utf-8');
+
+    if (LIMIT > 0 && counters.imported + counters.updated >= LIMIT) {
+      console.log(`[limit] Reached import limit (${LIMIT}) — stopping`);
+      break;
+    }
+
+    await importMapFile(stateKey, fileName, content, sourceUrl, existing?.mapId, state, counters);
+  }
+
+  printSummary(counters);
+  saveState(state);
+  if (counters.failed > 0) process.exit(1);
+}
+
+function countSkippedInc(c: { skipped: number }): void { c.skipped++; }
 
 async function main(): Promise<void> {
   console.log('╔══════════════════════════════════════════════╗');
   console.log('║  ShExMap GitHub Harvester                    ║');
   console.log('╚══════════════════════════════════════════════╝');
   console.log(`  API URL     : ${API_URL}`);
-  console.log(`  GH query    : "${GH_QUERY}"`);
   console.log(`  State file  : ${STATE_FILE}`);
+  console.log(`  Map dir     : ${MAP_OUTPUT_DIR ?? '(disabled)'}`);
+  console.log(`  Dry run     : ${DRY_RUN}`);
+  console.log(`  Force       : ${FORCE}`);
+
+  if (FROM_DISK) {
+    console.log('  Mode        : from-disk (skipping GitHub search)');
+    console.log('');
+    return mainFromDisk();
+  }
+
+  console.log(`  GH query    : "${GH_QUERY}"`);
   console.log(`  Output dir  : ${OUTPUT_DIR ?? '(disabled)'}`);
   console.log(`  SPARQL dedup: ${SPARQL_URL ?? '(disabled)'}`);
   console.log(`  Fetch topics: ${FETCH_TOPICS}`);
   console.log(`  Limit       : ${LIMIT || 'unlimited'}`);
-  console.log(`  Dry run     : ${DRY_RUN}`);
-  console.log(`  Force       : ${FORCE}`);
   if (!GH_TOKEN) {
     console.warn('\n[warn] GITHUB_TOKEN not set — code search is limited to 10 req/min.\n');
   }
@@ -423,15 +571,11 @@ async function main(): Promise<void> {
 
   const state: HarvestState = FORCE ? { version: 1, harvested: {} } : loadState();
 
-  let countImported = 0;
-  let countUpdated = 0;
-  let countSkipped = 0;
-  let countFiltered = 0;
-  let countFailed = 0;
+  const counters = { imported: 0, updated: 0, skipped: 0, savedOnly: 0, failed: 0 };
 
   outer: for await (const items of searchCodePages(GH_QUERY)) {
     for (const item of items) {
-      if (LIMIT > 0 && countImported + countUpdated >= LIMIT) {
+      if (LIMIT > 0 && counters.imported + counters.updated >= LIMIT) {
         console.log(`[limit] Reached import limit (${LIMIT}) — stopping`);
         break outer;
       }
@@ -443,11 +587,9 @@ async function main(): Promise<void> {
       // ── 1. State-file dedup ─────────────────────────────────────────────
       if (!FORCE && existing) {
         if (existing.sha === item.sha) {
-          // Unchanged since last harvest
-          countSkipped++;
+          counters.skipped++;
           continue;
         }
-        // SHA changed → will save a new version below (if existing.mapId is set)
       }
 
       // ── 2. SPARQL dedup (for files not yet in local state) ──────────────
@@ -461,12 +603,8 @@ async function main(): Promise<void> {
         }
         if (inStore) {
           console.log(`  [skip-sparql] ${stateKey} — already in triplestore`);
-          state.harvested[stateKey] = {
-            sha: item.sha,
-            importedAt: new Date().toISOString(),
-            sourceUrl: rawUrl,
-          };
-          countSkipped++;
+          state.harvested[stateKey] = { sha: item.sha, importedAt: new Date().toISOString(), sourceUrl: rawUrl };
+          counters.skipped++;
           continue;
         }
       }
@@ -478,127 +616,66 @@ async function main(): Promise<void> {
         content = await fetchRawContent(item.git_url);
       } catch (err) {
         console.error(`  [error] download ${stateKey}: ${err}`);
-        countFailed++;
+        counters.failed++;
         continue;
       }
 
-      // ── 4. Filter: require %Map: annotations ────────────────────────────
-      if (!hasMapAnnotations(content)) {
-        countFiltered++;
+      const isMap = hasMapAnnotations(content);
+
+      // ── 4. Save to disk ─────────────────────────────────────────────────
+      if (!DRY_RUN) {
+        try {
+          saveFile(OUTPUT_DIR, item.repository.full_name, item.path, content);
+          if (isMap) saveFile(MAP_OUTPUT_DIR, item.repository.full_name, item.path, content);
+        } catch (err) {
+          console.warn(`  [warn] Could not write file for ${stateKey}: ${err}`);
+        }
+      }
+
+      // ── 5. Non-map files: record state and move on ──────────────────────
+      if (!isMap) {
+        if (DRY_RUN) {
+          console.log(`  [would-save] ${stateKey}`);
+          console.log(`    source : ${rawUrl}`);
+          console.log(`    size   : ${content.length.toLocaleString()} chars`);
+          if (OUTPUT_DIR) console.log(`    dir    : ${join(OUTPUT_DIR, item.repository.full_name, item.path)}`);
+        } else {
+          state.harvested[stateKey] = { sha: item.sha, importedAt: new Date().toISOString(), sourceUrl: rawUrl };
+          saveState(state);
+        }
+        counters.savedOnly++;
         continue;
       }
 
-      // ── 5. Metadata ─────────────────────────────────────────────────────
-      const title = extractTitle(content, item.name);
-      const description = extractDescription(content);
-
+      // ── 6. Import map file ──────────────────────────────────────────────
       let topics: string[] = item.repository.topics ?? [];
       if (FETCH_TOPICS && topics.length === 0) {
         try {
           const info = await getRepoInfo(item.repository.full_name);
           topics = info.topics ?? [];
-        } catch {
-          // non-fatal
-        }
+        } catch { /* non-fatal */ }
       }
-
       const tags = [...new Set(['github-harvested', ...topics])].slice(0, 20);
 
-      const payload: ImportPayload = {
-        title,
-        description,
-        content,
-        fileName: item.name,
-        fileFormat: 'shexc',
-        sourceUrl: rawUrl,
-        tags,
-        version: '1.0.0',
-      };
-
-      // ── 6. Save compressed file to disk ────────────────────────────────
-      let savedPath: string | null = null;
-      if (!DRY_RUN) {
-        try {
-          savedPath = await saveCompressed(item.repository.full_name, item.path, content);
-        } catch (err) {
-          console.warn(`  [warn] Could not write compressed file for ${stateKey}: ${err}`);
-        }
-      }
-
-      // ── 7. Dry run output ───────────────────────────────────────────────
       if (DRY_RUN) {
         const action = existing?.mapId ? 'would-update' : 'would-import';
         console.log(`  [${action}] ${stateKey}`);
-        console.log(`    title      : ${title}`);
+        console.log(`    title      : ${extractTitle(content, item.name)}`);
         console.log(`    source     : ${rawUrl}`);
         console.log(`    tags       : ${tags.join(', ') || '(none)'}`);
         console.log(`    size       : ${content.length.toLocaleString()} chars`);
-        if (OUTPUT_DIR) {
-          const dest = join(OUTPUT_DIR, item.repository.full_name, `${item.path}.gz`);
-          console.log(`    would-save : ${dest}`);
-        }
-        countImported++;
+        if (MAP_OUTPUT_DIR) console.log(`    map-dir    : ${join(MAP_OUTPUT_DIR, item.repository.full_name, item.path)}`);
+        counters.imported++;
         continue;
       }
 
-      // ── 8. Import or update ─────────────────────────────────────────────
-      try {
-        await sleep(DELAY_MS);
-
-        if (existing?.mapId) {
-          // SHA changed → save new version on the existing map
-          await saveNewVersion(
-            existing.mapId,
-            content,
-            `Harvested update from GitHub (blob ${item.sha.slice(0, 7)})`,
-          );
-          console.log(`  [updated] ${stateKey}  id=${existing.mapId}${savedPath ? `  → ${savedPath}` : ''}`);
-          state.harvested[stateKey] = { ...existing, sha: item.sha, importedAt: new Date().toISOString() };
-          countUpdated++;
-        } else {
-          // New file → create ShExMap
-          const result = await importShExMap(payload);
-          if (result) {
-            console.log(`  [imported] ${stateKey}  id=${result.id}${savedPath ? `  → ${savedPath}` : ''}`);
-            state.harvested[stateKey] = {
-              sha: item.sha,
-              mapId: result.id,
-              importedAt: new Date().toISOString(),
-              sourceUrl: rawUrl,
-            };
-            countImported++;
-          } else {
-            // 409 — already exists (e.g. state file was reset after a previous run)
-            console.log(`  [skip-dup] ${stateKey} — API returned 409`);
-            state.harvested[stateKey] = {
-              sha: item.sha,
-              importedAt: new Date().toISOString(),
-              sourceUrl: rawUrl,
-            };
-            countSkipped++;
-          }
-        }
-
-        saveState(state);
-      } catch (err) {
-        console.error(`  [error] import ${stateKey}: ${err}`);
-        countFailed++;
-      }
+      await importMapFile(stateKey, item.name, content, rawUrl, existing?.mapId, state, counters);
     }
   }
 
-  console.log('');
-  console.log('─────────────────────────────────────────────');
-  console.log(`  Imported (new)    : ${countImported}`);
-  console.log(`  Updated (new ver) : ${countUpdated}`);
-  console.log(`  Skipped (unchanged): ${countSkipped}`);
-  console.log(`  Filtered (no %Map): ${countFiltered}`);
-  console.log(`  Failed            : ${countFailed}`);
-  console.log('─────────────────────────────────────────────');
-
+  printSummary(counters);
   saveState(state);
-
-  if (countFailed > 0) process.exit(1);
+  if (counters.failed > 0) process.exit(1);
 }
 
 main().catch(err => {
