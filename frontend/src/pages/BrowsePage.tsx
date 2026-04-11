@@ -15,9 +15,11 @@ export default function BrowsePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const paramTab = searchParams.get('tab') as Tab | null;
   const highlightSchema = searchParams.get('schema') ?? undefined;
+  const paramMaps = searchParams.get('maps');
+  const initialHasMap = paramMaps === 'true' ? true : paramMaps === 'false' ? false : undefined;
 
   const [tab, setTab] = useState<Tab>(paramTab ?? 'pairings');
-  const [mapFilters, setMapFilters] = useState<ShExMapFilters>({ page: 1, limit: 20, sort: 'modified' });
+  const [mapFilters, setMapFilters] = useState<ShExMapFilters>({ page: 1, limit: 20, sort: 'modified', hasMapAnnotations: initialHasMap });
   const [pairingFilters, setPairingFilters] = useState<PairingFilters>({ page: 1, limit: 20, sort: 'modified' });
 
   // Sync tab → URL
@@ -163,11 +165,11 @@ export default function BrowsePage() {
       {/* ── ShExMap Files tab ── */}
       {tab === 'shexmaps' && (
         <div className="space-y-4">
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <input
               type="search"
-              placeholder="Search by title or tag…"
-              className="flex-1 bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+              placeholder="Search by title, tag, or variable name…"
+              className="flex-1 min-w-48 bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               onChange={(e) => setMapFilters((f) => ({ ...f, q: e.target.value, page: 1 }))}
             />
             <select
@@ -179,6 +181,29 @@ export default function BrowsePage() {
               <option value="stars">Most Starred</option>
               <option value="title">Title A–Z</option>
             </select>
+            {/* Map annotation filter */}
+            <div className="flex rounded-lg border border-slate-300 overflow-hidden shadow-sm text-sm font-medium">
+              {([
+                { label: 'All',           value: undefined },
+                { label: 'ShExMaps',      value: true },
+                { label: 'ShEx Files',    value: false },
+              ] as { label: string; value: boolean | undefined }[]).map(({ label, value }) => {
+                const active = mapFilters.hasMapAnnotations === value;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setMapFilters((f) => ({ ...f, hasMapAnnotations: value, page: 1 }))}
+                    className={`px-3 py-2 transition-colors ${
+                      active
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {mapsQuery.isLoading && (
@@ -198,8 +223,14 @@ export default function BrowsePage() {
                 className="group flex items-start justify-between bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 hover:border-violet-300 hover:shadow-md transition-all"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-slate-800 group-hover:text-violet-700 transition-colors">
-                    {map.title}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-800 group-hover:text-violet-700 transition-colors">
+                      {map.title}
+                    </span>
+                    {map.hasMapAnnotations
+                      ? <span className="bg-violet-100 text-violet-700 border border-violet-200 text-xs px-2 py-0.5 rounded-full font-medium">ShExMap</span>
+                      : <span className="bg-slate-100 text-slate-500 border border-slate-200 text-xs px-2 py-0.5 rounded-full font-medium">ShEx</span>
+                    }
                   </div>
                   {map.description && (
                     <div className="text-sm text-slate-500 mt-0.5 truncate">{map.description}</div>
@@ -210,6 +241,22 @@ export default function BrowsePage() {
                       <span className="bg-blue-50 text-blue-700 border border-blue-100 text-xs px-2 py-0.5 rounded-full font-medium">
                         {map.schemaUrl.split('/').pop() ?? map.schemaUrl}
                       </span>
+                    </div>
+                  )}
+                  {map.mapVariables && map.mapVariables.length > 0 && (
+                    <div className="flex gap-1.5 mt-1.5 flex-wrap items-center">
+                      <span className="text-xs text-slate-400">Variables:</span>
+                      {map.mapVariables.slice(0, 8).map((v) => (
+                        <span
+                          key={v}
+                          className="bg-amber-50 text-amber-700 border border-amber-100 text-xs px-2 py-0.5 rounded-full font-mono"
+                        >
+                          {v}
+                        </span>
+                      ))}
+                      {map.mapVariables.length > 8 && (
+                        <span className="text-xs text-slate-400">+{map.mapVariables.length - 8} more</span>
+                      )}
                     </div>
                   )}
                   <div className="text-xs text-slate-400 mt-1.5">

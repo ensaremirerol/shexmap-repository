@@ -31,6 +31,8 @@ export interface ShExMap {
   createdAt: string;
   modifiedAt: string;
   stars: number;
+  hasMapAnnotations?: boolean;
+  mapVariables?: string[];
 }
 
 export interface ShExMapListResult {
@@ -43,6 +45,8 @@ export interface ShExMapFilters {
   tag?: string;
   author?: string;
   schemaUrl?: string;
+  hasMapAnnotations?: boolean;
+  mapVariable?: string;
   page?: number;
   limit?: number;
   sort?: 'created' | 'modified' | 'title' | 'stars';

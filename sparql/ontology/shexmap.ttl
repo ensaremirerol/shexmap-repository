@@ -65,6 +65,18 @@ shexmap:sampleTurtleData a owl:DatatypeProperty ;
     rdfs:domain shexmap:ShExMap ;
     rdfs:range xsd:string .
 
+shexmap:hasMapAnnotations a owl:DatatypeProperty ;
+    rdfs:label "has map annotations" ;
+    rdfs:comment "True if this ShEx file contains %%Map:{ ... %} annotation expressions." ;
+    rdfs:domain shexmap:ShExMap ;
+    rdfs:range xsd:boolean .
+
+shexmap:mapVariable a owl:DatatypeProperty ;
+    rdfs:label "map variable" ;
+    rdfs:comment "A %%Map:{ variable %} name declared in this ShEx file. Multi-valued — one triple per variable." ;
+    rdfs:domain shexmap:ShExMap ;
+    rdfs:range xsd:string .
+
 shexmap:hasSchema a owl:ObjectProperty ;
     rdfs:label "has schema" ;
     rdfs:comment "Links a ShExMap to the ShEx schema whose shapes it annotates." ;

@@ -14,6 +14,19 @@ const RP   = PREFIXES.shexrpair;
 const RU   = PREFIXES.shexruser;
 const SM   = PREFIXES.shexmap;
 
+// ─── Map variable extraction ──────────────────────────────────────────────────
+
+const MAP_VAR_RE = /%Map:\s*\{\s*([^%\s}]+)\s*%\}/g;
+
+function extractMapVariables(content?: string): string[] {
+  if (!content) return [];
+  const vars: string[] = [];
+  for (const m of content.matchAll(MAP_VAR_RE)) {
+    if (m[1]) vars.push(m[1]);
+  }
+  return [...new Set(vars)];
+}
+
 // ─── Individual ShExMap ───────────────────────────────────────────────────────
 
 export async function listShExMaps(
@@ -23,16 +36,19 @@ export async function listShExMaps(
   const offset = (query.page - 1) * query.limit;
 
   const filters: string[] = [];
-  if (query.q)         filters.push(`FILTER(CONTAINS(LCASE(?title), LCASE("${escapeStr(query.q)}")))`);
+  if (query.q)         filters.push(`FILTER(CONTAINS(LCASE(?title), LCASE("${escapeStr(query.q)}")) || EXISTS { ?id <${SM}mapVariable> ?qv . FILTER(CONTAINS(LCASE(?qv), LCASE("${escapeStr(query.q)}"))) })`);
   if (query.tag)       filters.push(`FILTER(EXISTS { ?id dcat:keyword "${escapeStr(query.tag)}" })`);
   if (query.author)    filters.push(`FILTER(?authorId = <${RU}${escapeStr(query.author)}>)`);
   if (query.schemaUrl) filters.push(`FILTER(?schemaUrl = <${escapeStr(query.schemaUrl)}>)`);
+  if (query.hasMapAnnotations !== undefined) filters.push(`FILTER(?hasMapAnnotations = ${query.hasMapAnnotations})`);
+  if (query.mapVariable) filters.push(`FILTER(EXISTS { ?id <${SM}mapVariable> "${escapeStr(query.mapVariable)}" })`);
 
   const filterBlock = filters.join('\n  ');
   const sortVar = query.sort === 'stars' ? 'stars' : query.sort;
-  const orderBy = `ORDER BY ${query.order === 'desc' ? 'DESC' : 'ASC'}(?${sortVar})`;
+  const orderDir = query.order === 'desc' ? 'DESC' : 'ASC';
 
-  const whereBlock = `
+  // Inner WHERE used for COUNT (no multi-valued properties)
+  const coreWhere = `
     WHERE {
       ?id a <${SM}ShExMap> ;
           dct:title ?title ;
@@ -47,19 +63,29 @@ export async function listShExMaps(
       OPTIONAL { ?id <${SM}hasSchema> ?schemaUrl }
       OPTIONAL { ?authorId schema:name ?authorName }
       OPTIONAL { ?id <${SM}stars> ?stars }
+      OPTIONAL { ?id <${SM}hasMapAnnotations> ?hasMapAnnotations }
       ${filterBlock}
     }`;
 
+  // Outer query: paginate on scalar rows, then join multi-valued mapVariable
   const sparql = `
     SELECT ?id ?title ?description ?fileName ?fileFormat ?sourceUrl ?schemaUrl
            ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars
-    ${whereBlock}
-    ${orderBy}
-    LIMIT ${query.limit}
-    OFFSET ${offset}
+           ?hasMapAnnotations ?mapVariable
+    WHERE {
+      {
+        SELECT ?id ?title ?description ?fileName ?fileFormat ?sourceUrl ?schemaUrl
+               ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars ?hasMapAnnotations
+        ${coreWhere}
+        ORDER BY ${orderDir}(?${sortVar})
+        LIMIT ${query.limit}
+        OFFSET ${offset}
+      }
+      OPTIONAL { ?id <${SM}mapVariable> ?mapVariable }
+    }
   `;
 
-  const countSparql = `SELECT (COUNT(DISTINCT ?id) AS ?total) ${whereBlock}`;
+  const countSparql = `SELECT (COUNT(DISTINCT ?id) AS ?total) ${coreWhere}`;
 
   const [rows, countRows] = await Promise.all([
     sparqlSelect(fastify, sparql),
@@ -67,31 +93,37 @@ export async function listShExMaps(
   ]);
   const total = parseInt(countRows[0]?.['total']?.value ?? '0', 10);
 
-  const seen = new Set<string>();
-  const items: ShExMap[] = [];
+  const seen = new Map<string, ShExMap>();
   for (const r of rows) {
     const id = extractLocalId(r['id']?.value ?? '');
-    if (seen.has(id)) continue;
-    seen.add(id);
-    items.push({
-      id,
-      title: r['title']?.value ?? '',
-      description: r['description']?.value,
-      fileName: r['fileName']?.value,
-      fileFormat: r['fileFormat']?.value ?? 'shexc',
-      sourceUrl: r['sourceUrl']?.value,
-      schemaUrl: r['schemaUrl']?.value,
-      tags: [],
-      version: r['version']?.value ?? '1.0.0',
-      authorId: extractLocalId(r['authorId']?.value ?? ''),
-      authorName: r['authorName']?.value ?? 'Unknown',
-      createdAt: r['createdAt']?.value ?? '',
-      modifiedAt: r['modifiedAt']?.value ?? '',
-      stars: parseInt(r['stars']?.value ?? '0', 10),
-    });
+    if (!seen.has(id)) {
+      seen.set(id, {
+        id,
+        title: r['title']?.value ?? '',
+        description: r['description']?.value,
+        fileName: r['fileName']?.value,
+        fileFormat: r['fileFormat']?.value ?? 'shexc',
+        sourceUrl: r['sourceUrl']?.value,
+        schemaUrl: r['schemaUrl']?.value,
+        tags: [],
+        version: r['version']?.value ?? '1.0.0',
+        authorId: extractLocalId(r['authorId']?.value ?? ''),
+        authorName: r['authorName']?.value ?? 'Unknown',
+        createdAt: r['createdAt']?.value ?? '',
+        modifiedAt: r['modifiedAt']?.value ?? '',
+        stars: parseInt(r['stars']?.value ?? '0', 10),
+        hasMapAnnotations: r['hasMapAnnotations']?.value === 'true',
+        mapVariables: [],
+      });
+    }
+    const mv = r['mapVariable']?.value;
+    if (mv) {
+      const entry = seen.get(id)!;
+      if (!entry.mapVariables!.includes(mv)) entry.mapVariables!.push(mv);
+    }
   }
 
-  return { items, total };
+  return { items: [...seen.values()], total };
 }
 
 export async function getShExMap(
@@ -103,6 +135,7 @@ export async function getShExMap(
   const sparql = `
     SELECT ?title ?description ?content ?sampleTurtleData ?fileName ?fileFormat ?sourceUrl ?schemaUrl
            ?authorId ?authorName ?createdAt ?modifiedAt ?version ?stars ?tag
+           ?hasMapAnnotations ?mapVariable
     WHERE {
       <${iri}> a <${SM}ShExMap> ;
           dct:title ?title ;
@@ -120,6 +153,8 @@ export async function getShExMap(
       OPTIONAL { ?authorId schema:name ?authorName }
       OPTIONAL { <${iri}> <${SM}stars> ?stars }
       OPTIONAL { <${iri}> dcat:keyword ?tag }
+      OPTIONAL { <${iri}> <${SM}hasMapAnnotations> ?hasMapAnnotations }
+      OPTIONAL { <${iri}> <${SM}mapVariable> ?mapVariable }
     }
   `;
 
@@ -128,6 +163,7 @@ export async function getShExMap(
 
   const r = rows[0]!;
   const tags = [...new Set(rows.map((row) => row['tag']?.value).filter(Boolean) as string[])];
+  const mapVariables = [...new Set(rows.map((row) => row['mapVariable']?.value).filter(Boolean) as string[])];
 
   return {
     id,
@@ -146,6 +182,8 @@ export async function getShExMap(
     createdAt: r['createdAt']?.value ?? '',
     modifiedAt: r['modifiedAt']?.value ?? '',
     stars: parseInt(r['stars']?.value ?? '0', 10),
+    hasMapAnnotations: r['hasMapAnnotations']?.value === 'true',
+    mapVariables,
   };
 }
 
@@ -164,7 +202,9 @@ export async function createShExMap(
   const now = new Date().toISOString();
   const authorIri = `${RU}${authorId}`;
 
+  const mapVars = extractMapVariables(data.content);
   const tagTriples = data.tags.map((t) => `<${iri}> dcat:keyword "${escapeStr(t)}" .`).join('\n  ');
+  const varTriples = mapVars.map((v) => `<${iri}> <${SM}mapVariable> "${escapeStr(v)}" .`).join('\n  ');
 
   const update = `
     INSERT DATA {
@@ -181,8 +221,10 @@ export async function createShExMap(
         dct:creator <${authorIri}> ;
         dct:created "${now}"^^xsd:dateTime ;
         dct:modified "${now}"^^xsd:dateTime ;
+        <${SM}hasMapAnnotations> ${mapVars.length > 0} ;
         <${SM}stars> 0 .
       ${tagTriples}
+      ${varTriples}
     }
   `;
 

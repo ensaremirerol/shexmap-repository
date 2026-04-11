@@ -4,6 +4,8 @@ import { useShExMaps, useShExMapPairings } from '../api/shexmaps.js';
 export default function HomePage() {
   const { data: maps } = useShExMaps({ limit: 5, sort: 'modified' });
   const { data: pairings } = useShExMapPairings({ limit: 5, sort: 'modified' });
+  const { data: mapsWithAnnotations }    = useShExMaps({ limit: 1, hasMapAnnotations: true });
+  const { data: mapsWithoutAnnotations } = useShExMaps({ limit: 1, hasMapAnnotations: false });
 
   return (
     <div className="space-y-14">
@@ -53,16 +55,15 @@ export default function HomePage() {
       </section>
 
       {/* Stats */}
-      <section className="grid grid-cols-2 gap-4 max-w-md mx-auto w-full">
+      <section className="grid grid-cols-3 gap-4 max-w-2xl mx-auto w-full">
         {[
-          // { label: 'Schemas', value: schemas?.length, tab: 'schemas' },
-          { label: 'Pairings', value: pairings?.total, tab: 'pairings' },
-          { label: 'ShExMap Files', value: maps?.total, tab: 'shexmaps' },
-          
-        ].map(({ label, value, tab }) => (
+          { label: 'Pairings',   value: pairings?.total,               href: '/browse?tab=pairings' },
+          { label: 'ShExMaps',   value: mapsWithAnnotations?.total,    href: '/browse?tab=shexmaps&maps=true' },
+          { label: 'ShEx Files', value: mapsWithoutAnnotations?.total, href: '/browse?tab=shexmaps&maps=false' },
+        ].map(({ label, value, href }) => (
           <Link
             key={label}
-            to={`/browse?tab=${tab}`}
+            to={href}
             className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 text-center hover:border-violet-300 hover:shadow-md transition-all group"
           >
             <div className="text-3xl font-bold text-violet-600 group-hover:text-violet-700">

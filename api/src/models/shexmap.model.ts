@@ -24,6 +24,8 @@ export const ShExMapQuerySchema = z.object({
   tag: z.string().optional(),
   author: z.string().optional(),
   schemaUrl: z.string().optional(),
+  hasMapAnnotations: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
+  mapVariable: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   sort: z.enum(['created', 'modified', 'title', 'stars']).default('modified'),
@@ -55,6 +57,8 @@ export interface ShExMap {
   createdAt: string;
   modifiedAt: string;
   stars: number;
+  hasMapAnnotations?: boolean;
+  mapVariables?: string[];
 }
 
 // ─── ShExMap Version ──────────────────────────────────────────────────────────

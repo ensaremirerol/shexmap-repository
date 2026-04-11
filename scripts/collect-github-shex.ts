@@ -496,44 +496,54 @@ function printSummary(counters: { imported: number; updated: number; skipped: nu
 }
 
 async function mainFromDisk(): Promise<void> {
-  if (!MAP_OUTPUT_DIR || !existsSync(MAP_OUTPUT_DIR)) {
-    console.error(`[fatal] Map output dir not found: ${MAP_OUTPUT_DIR}`);
+  const dirsToScan: Array<{ dir: string; label: string }> = [];
+  if (MAP_OUTPUT_DIR && existsSync(MAP_OUTPUT_DIR)) dirsToScan.push({ dir: MAP_OUTPUT_DIR, label: 'maps' });
+  if (OUTPUT_DIR && existsSync(OUTPUT_DIR))         dirsToScan.push({ dir: OUTPUT_DIR,     label: 'all-shex' });
+
+  if (dirsToScan.length === 0) {
+    console.error(`[fatal] No directories to scan. Checked: ${[MAP_OUTPUT_DIR, OUTPUT_DIR].filter(Boolean).join(', ')}`);
     process.exit(1);
   }
 
-  console.log(`[from-disk] Scanning ${MAP_OUTPUT_DIR}`);
   const state = FORCE ? { version: 1 as const, harvested: {} } : loadState();
   const counters = { imported: 0, updated: 0, skipped: 0, failed: 0 };
+  let limitReached = false;
 
-  for (const filePath of walkDir(MAP_OUTPUT_DIR)) {
-    if (!filePath.endsWith('.shex')) continue;
+  for (const { dir, label } of dirsToScan) {
+    if (limitReached) break;
+    console.log(`[from-disk] Scanning ${dir} (${label})`);
 
-    // Derive stateKey from path: MAP_OUTPUT_DIR/{owner}/{repo}/{...rest}
-    const rel = filePath.slice(MAP_OUTPUT_DIR.length + 1); // owner/repo/path/to/file.shex
-    const parts = rel.split('/');
-    if (parts.length < 3) continue;
-    const fullName = `${parts[0]}/${parts[1]}`;         // owner/repo
-    const filePart = parts.slice(2).join('/');           // path/to/file.shex
-    const stateKey = `${fullName}:${filePart}`;
-    const fileName = parts[parts.length - 1];
+    for (const filePath of walkDir(dir)) {
+      if (!filePath.endsWith('.shex')) continue;
 
-    const existing = state.harvested[stateKey];
-    if (!FORCE && existing?.mapId) {
-      countSkippedInc(counters);
-      continue;
+      // Derive stateKey from path: {dir}/{owner}/{repo}/{...rest}
+      const rel = filePath.slice(dir.length + 1); // owner/repo/path/to/file.shex
+      const parts = rel.split('/');
+      if (parts.length < 3) continue;
+      const fullName = `${parts[0]}/${parts[1]}`;  // owner/repo
+      const filePart = parts.slice(2).join('/');    // path/to/file.shex
+      const stateKey = `${fullName}:${filePart}`;
+      const fileName = parts[parts.length - 1];
+
+      const existing = state.harvested[stateKey];
+      if (!FORCE && existing?.mapId) {
+        countSkippedInc(counters);
+        continue;
+      }
+
+      const sourceUrl = existing?.sourceUrl
+        ?? `https://raw.githubusercontent.com/${fullName}/HEAD/${filePart}`;
+
+      const content = readFileSync(filePath, 'utf-8');
+
+      if (LIMIT > 0 && counters.imported + counters.updated >= LIMIT) {
+        console.log(`[limit] Reached import limit (${LIMIT}) — stopping`);
+        limitReached = true;
+        break;
+      }
+
+      await importMapFile(stateKey, fileName, content, sourceUrl, existing?.mapId, state, counters);
     }
-
-    const sourceUrl = existing?.sourceUrl
-      ?? `https://raw.githubusercontent.com/${fullName}/HEAD/${filePart}`;
-
-    const content = readFileSync(filePath, 'utf-8');
-
-    if (LIMIT > 0 && counters.imported + counters.updated >= LIMIT) {
-      console.log(`[limit] Reached import limit (${LIMIT}) — stopping`);
-      break;
-    }
-
-    await importMapFile(stateKey, fileName, content, sourceUrl, existing?.mapId, state, counters);
   }
 
   printSummary(counters);
@@ -555,6 +565,8 @@ async function main(): Promise<void> {
 
   if (FROM_DISK) {
     console.log('  Mode        : from-disk (skipping GitHub search)');
+    console.log(`  Map dir     : ${MAP_OUTPUT_DIR ?? '(disabled)'}`);
+    console.log(`  All-shex dir: ${OUTPUT_DIR ?? '(disabled)'}`);
     console.log('');
     return mainFromDisk();
   }

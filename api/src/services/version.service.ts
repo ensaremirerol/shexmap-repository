@@ -8,6 +8,18 @@ const RU  = PREFIXES.shexruser;
 const RV  = PREFIXES.shexrversion;
 const SM  = PREFIXES.shexmap;
 
+// ─── Map variable extraction ──────────────────────────────────────────────────
+
+const MAP_VAR_RE = /%Map:\s*\{\s*([^%\s}]+)\s*%\}/g;
+
+function extractMapVariables(content: string): string[] {
+  const vars: string[] = [];
+  for (const m of content.matchAll(MAP_VAR_RE)) {
+    if (m[1]) vars.push(m[1]);
+  }
+  return [...new Set(vars)];
+}
+
 // ─── Per-map lock to serialize concurrent saves ───────────────────────────────
 
 const saveLocks = new Map<string, Promise<unknown>>();
@@ -168,6 +180,22 @@ export async function saveNewVersion(
       WHERE  { OPTIONAL { <${mapIri}> <${SM}currentVersion> ?old ; dct:modified ?m } }
     `;
     await sparqlUpdate(fastify, updateParent);
+
+    // 4. Update hasMapAnnotations + mapVariable triples on parent map based on new content
+    const vars = extractMapVariables(content);
+    const hasMap = vars.length > 0;
+    await sparqlUpdate(fastify, `
+      DELETE { <${mapIri}> <${SM}hasMapAnnotations> ?hma . <${mapIri}> <${SM}mapVariable> ?mv }
+      WHERE  { OPTIONAL { <${mapIri}> <${SM}hasMapAnnotations> ?hma }
+               OPTIONAL { <${mapIri}> <${SM}mapVariable> ?mv } }
+    `);
+    const varTriples = vars.map((v) => `<${mapIri}> <${SM}mapVariable> "${escapeStr(v)}" .`).join('\n        ');
+    await sparqlUpdate(fastify, `
+      INSERT DATA {
+        <${mapIri}> <${SM}hasMapAnnotations> ${hasMap} .
+        ${varTriples}
+      }
+    `);
 
     return {
       id: versionId,

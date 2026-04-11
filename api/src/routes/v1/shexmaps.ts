@@ -109,6 +109,8 @@ const shexMapProperties = {
   createdAt:      { type: 'string', format: 'date-time' },
   modifiedAt:     { type: 'string', format: 'date-time' },
   stars:          { type: 'integer', description: 'Star count.' },
+  hasMapAnnotations: { type: 'boolean', description: 'True if the ShEx content contains %%Map:{ ... %} expressions.' },
+  mapVariables:   { type: 'array', items: { type: 'string' }, description: 'Deduplicated list of %%Map:{ variable %} names declared in this file.' },
 } as const;
 
 const shexMapSchema = {
@@ -156,14 +158,16 @@ const shexmapsRoutes: FastifyPluginAsync = async (fastify) => {
       querystring: {
         type: 'object',
         properties: {
-          q:         { type: 'string', description: 'Full-text search query.' },
-          tag:       { type: 'string', description: 'Filter by tag.' },
-          author:    { type: 'string', description: 'Filter by author ID.' },
-          schemaUrl: { type: 'string', description: 'Filter by associated schema IRI.' },
-          page:      { type: 'integer', minimum: 1, default: 1 },
-          limit:     { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-          sort:      { type: 'string', enum: ['created', 'modified', 'title', 'stars'], default: 'modified' },
-          order:     { type: 'string', enum: ['asc', 'desc'], default: 'desc' },
+          q:                 { type: 'string', description: 'Search by title or map variable name (case-insensitive substring).' },
+          tag:               { type: 'string', description: 'Filter by tag.' },
+          author:            { type: 'string', description: 'Filter by author ID.' },
+          schemaUrl:         { type: 'string', description: 'Filter by associated schema IRI.' },
+          hasMapAnnotations: { type: 'string', enum: ['true', 'false'], description: 'Filter by presence of %%Map: annotations.' },
+          mapVariable:       { type: 'string', description: 'Filter to files exposing a specific map variable name.' },
+          page:              { type: 'integer', minimum: 1, default: 1 },
+          limit:             { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          sort:              { type: 'string', enum: ['created', 'modified', 'title', 'stars'], default: 'modified' },
+          order:             { type: 'string', enum: ['asc', 'desc'], default: 'desc' },
         },
       },
       response: {
