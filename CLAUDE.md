@@ -6,40 +6,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An online repository platform for **ShExMaps** — mappings between RDF shapes defined by ShEx (Shape Expressions). See [REQUIREMENTS.md](REQUIREMENTS.md) for full requirements.
 
+## Repository status
+
+This repository is being migrated from a **monolith** (`api/`) to a **microservices architecture** (`services/`). The monolith in `api/` remains the reference implementation and is still functional. New development should happen in `services/`.
+
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Node.js with Fastify (`api/`) |
+| Backend (new) | Node.js microservices in `services/` (gRPC + HTTP) |
+| Backend (legacy) | Node.js with Fastify (`api/`) — reference only |
 | Triplestore / SPARQL | QLever (`docker/qlever/`) |
 | Frontend | React SPA with Vite (`frontend/`) |
 | Auth | Optional — OAuth2/OIDC + API keys (`AUTH_ENABLED` env var) |
 | Deployment | Docker + Docker Compose |
+| Inter-service | gRPC (`@grpc/grpc-js` + `@grpc/proto-loader`) for compute/data services |
 | ShEx processing | `@shexjs/parser`, `@shexjs/core` |
 | Visualization | ReactFlow (mapping graphs), Recharts (coverage heatmaps) |
 
 ## Commands
 
 ```bash
-# Start everything
+# Start everything (new microservices architecture)
 cp .env.example .env
 docker compose up --build
 
-# Development (hot reload — starts api + qlever + nginx)
-docker compose up
-
-# Run API in dev mode (outside Docker, requires QLever running separately)
-cd api && npm install && npm run dev
+# Run individual services in dev mode
+cd services/svc-validate && npm install && npm run dev   # gRPC :50051
+cd services/svc-gateway  && npm install && npm run dev   # HTTP  :3000
 
 # Run frontend dev server
 cd frontend && npm install && npm run dev
 
-# Type-check API
-cd api && npm run typecheck
-
-# Run tests
-cd api && npm test
-cd frontend && npm test
+# Run tests for a service
+cd services/svc-validate && npm test
 
 # Force full QLever index rebuild (wipes volume, rebuilds from sparql/seed/ + ontology)
 ./scripts/rebuild-index.sh
@@ -50,23 +50,82 @@ cd frontend && npm test
 
 # Restore the triplestore from a Turtle backup (destructive — prompts for confirmation)
 ./scripts/restore-db.sh sparql/backup/YYYY-MM-DDTHH-MM-SS.ttl
-
-# Validate a ShExMap file
-npx tsx scripts/validate-shexmap.ts path/to/map.shexmap
 ```
 
-## Architecture
+## Architecture — Microservices
 
-Services are orchestrated with Docker Compose and communicate over a private `shexmap-net` bridge network. Only nginx is exposed to the host on port 80.
+All services communicate over the private `shexmap-net` Docker bridge network. Only `svc-gateway` is exposed to the host (via nginx on port 80).
 
 ```
-Browser → nginx:80
-           ├── /api/v1/*  → api:3000   (Fastify REST API)
-           ├── /sparql    → api:3000   (proxied to QLever with optional auth)
-           └── /*         → static     (React SPA)
+Browser
+  └── nginx:80
+        ├── /api/*   → svc-gateway:3000  (HTTP — JWT verify + gRPC fan-out)
+        ├── /sparql  → svc-gateway:3000  (proxied to svc-sparql-proxy)
+        └── /*       → static            (React SPA)
 
-api:3000 → qlever:7001  (direct SPARQL queries, not through nginx)
+svc-gateway:3000 (HTTP in, gRPC out)
+  ├── POST /api/v1/validate    → svc-validate:50051     (gRPC)
+  ├── /api/v1/shexmaps/*       → svc-shexmap:50052      (gRPC)
+  ├── /api/v1/pairings/*       → svc-pairing:50053      (gRPC)
+  ├── /api/v1/coverage/*       → svc-coverage:50054     (gRPC)
+  ├── /api/v1/schemas          → svc-schema:50055       (gRPC)
+  ├── /api/v1/auth/*           → svc-auth:3006          (HTTP — OAuth2 callbacks need HTTP)
+  ├── /api/v1/users/*          → svc-auth:3006          (HTTP)
+  └── /sparql                  → svc-sparql-proxy:3007  (HTTP — SPARQL protocol is HTTP)
+
+All gRPC services → qlever:7001 (SPARQL SELECT/UPDATE)
+svc-validate      → no external deps (pure CPU)
+svc-shexmap       → svc-validate:50051 (ShEx content validation on create)
 ```
+
+### Services at a glance
+
+| Service | Port | Protocol | CLAUDE.md |
+|---------|------|----------|-----------|
+| `services/shared` | — | npm workspace pkg | [CLAUDE.md](services/shared/CLAUDE.md) |
+| `services/svc-validate` | 50051 | gRPC | [CLAUDE.md](services/svc-validate/CLAUDE.md) |
+| `services/svc-shexmap` | 50052 | gRPC | [CLAUDE.md](services/svc-shexmap/CLAUDE.md) |
+| `services/svc-pairing` | 50053 | gRPC | [CLAUDE.md](services/svc-pairing/CLAUDE.md) |
+| `services/svc-coverage` | 50054 | gRPC | [CLAUDE.md](services/svc-coverage/CLAUDE.md) |
+| `services/svc-schema` | 50055 | gRPC | [CLAUDE.md](services/svc-schema/CLAUDE.md) |
+| `services/svc-auth` | 3006 | HTTP | [CLAUDE.md](services/svc-auth/CLAUDE.md) |
+| `services/svc-sparql-proxy` | 3007 | HTTP | [CLAUDE.md](services/svc-sparql-proxy/CLAUDE.md) |
+| `services/svc-gateway` | 3000 | HTTP | [CLAUDE.md](services/svc-gateway/CLAUDE.md) |
+
+### AuthContext flow
+
+The gateway verifies the JWT **once** and injects `AuthContext` as gRPC metadata into every downstream call. Backend services never handle JWTs directly — they read trusted metadata.
+
+```
+JWT (Bearer header)
+  └── svc-gateway: @fastify/jwt verify → AuthContext
+        ├── x-auth-user-id    (string, empty = anonymous)
+        ├── x-auth-role       ("anonymous" | "user" | "admin")
+        └── x-auth-enabled    ("true" | "false")
+              └── forwarded as gRPC Metadata to every backend call
+```
+
+**Coarse AuthZ** (gateway): anonymous user hitting a write endpoint → HTTP 401.
+**Fine AuthZ** (each service): authenticated user not owning the resource → gRPC PERMISSION_DENIED → HTTP 403.
+
+### Proto contracts
+
+All service APIs are defined as Protocol Buffer files in `services/shared/proto/`. These are the source of truth — the TypeScript interfaces in `services/shared/src/types/index.ts` mirror them manually.
+
+Proto files are loaded **dynamically at runtime** with `@grpc/proto-loader` (no protoc/code-gen step required).
+
+### Monorepo workspace
+
+```
+package.json          root workspace (npm workspaces: ["services/*"])
+services/
+  shared/             @shexmap/shared — internal, never deployed
+  svc-validate/       @shexmap/svc-validate
+  svc-shexmap/        @shexmap/svc-shexmap
+  ...
+```
+
+Install all: `npm install` at root. Install single service: `npm install --workspace=services/svc-validate`.
 
 ### Key Directories
 
