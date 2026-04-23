@@ -1,8 +1,8 @@
 import { sparqlSelect, sparqlUpdate } from '@shexmap/shared';
-import type { SimpleClient } from 'sparql-http-client';
-import type { Prefixes } from '@shexmap/shared';
+import type { SimpleClient, Prefixes } from '@shexmap/shared';
 import { v4 as uuidv4 } from 'uuid';
-import { hash as bcryptHash, compare as bcryptCompare } from 'bcryptjs';
+import bcrypt from 'bcryptjs';
+const { hash: bcryptHash, compare: bcryptCompare } = bcrypt;
 import { getDb } from '../db.js';
 
 const BCRYPT_ROUNDS = 12;

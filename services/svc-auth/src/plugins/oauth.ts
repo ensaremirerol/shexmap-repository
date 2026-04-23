@@ -1,6 +1,20 @@
 import fp from 'fastify-plugin';
 import oauth2 from '@fastify/oauth2';
 import type { FastifyInstance } from 'fastify';
+import type { ProviderConfiguration } from '@fastify/oauth2';
+
+const GITHUB_CONFIGURATION: ProviderConfiguration = {
+  tokenHost: 'https://github.com',
+  tokenPath: '/login/oauth/access_token',
+  authorizePath: '/login/oauth/authorize',
+};
+
+const GOOGLE_CONFIGURATION: ProviderConfiguration = {
+  authorizeHost: 'https://accounts.google.com',
+  authorizePath: '/o/oauth2/v2/auth',
+  tokenHost: 'https://www.googleapis.com',
+  tokenPath: '/oauth2/v4/token',
+};
 import { config } from '../config.js';
 
 export default fp(async (fastify: FastifyInstance) => {
@@ -14,7 +28,7 @@ export default fp(async (fastify: FastifyInstance) => {
           id:     config.oauth.github.clientId,
           secret: config.oauth.github.clientSecret,
         },
-        auth: oauth2.GITHUB_CONFIGURATION,
+        auth: GITHUB_CONFIGURATION,
       },
       startRedirectPath: '/auth/login/github',
       callbackUri: `${config.callbackBaseUrl}/auth/callback?provider=github`,
@@ -30,7 +44,7 @@ export default fp(async (fastify: FastifyInstance) => {
           id:     config.oauth.google.clientId,
           secret: config.oauth.google.clientSecret,
         },
-        auth: oauth2.GOOGLE_CONFIGURATION,
+        auth: GOOGLE_CONFIGURATION,
       },
       startRedirectPath: '/auth/login/google',
       callbackUri: `${config.callbackBaseUrl}/auth/callback?provider=google`,

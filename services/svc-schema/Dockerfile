@@ -6,30 +6,43 @@
 FROM node:22-alpine AS dev
 WORKDIR /app
 
-COPY svc-schema/package.json ./
-RUN npm install
+COPY package.json                  ./
+COPY shared/package.json           ./shared/package.json
+COPY svc-schema/package.json       ./svc-schema/package.json
+RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-schema
 
-COPY svc-schema/src/      ./src/
-COPY svc-schema/tsconfig.json ./
-COPY shared/proto/          ./proto/
+COPY shared/src/           ./shared/src/
+COPY shared/tsconfig.json  ./shared/tsconfig.json
+RUN npm run build --workspace=@shexmap/shared
 
+COPY svc-schema/src/          ./svc-schema/src/
+COPY svc-schema/tsconfig.json  ./svc-schema/tsconfig.json
+COPY shared/proto/            ./svc-schema/proto/
+
+WORKDIR /app/svc-schema
 EXPOSE 50000
 ENV NODE_ENV=development
 CMD ["npx", "tsx", "watch", "src/index.ts"]
 
 # ── builder ────────────────────────────────────────────────────────────────
 FROM dev AS builder
+WORKDIR /app/svc-schema
 RUN npx tsc
 
 # ── production ─────────────────────────────────────────────────────────────
 FROM node:22-alpine
 WORKDIR /app
 
-COPY --from=builder /app/dist         ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY shared/proto/                    ./proto/
-COPY svc-schema/package.json          ./
+COPY package.json                  ./
+COPY shared/package.json           ./shared/package.json
+COPY svc-schema/package.json       ./svc-schema/package.json
+RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-schema --omit=dev
 
+COPY --from=builder /app/shared/dist     ./shared/dist/
+COPY --from=builder /app/svc-schema/dist ./svc-schema/dist/
+COPY shared/proto/                       ./svc-schema/proto/
+
+WORKDIR /app/svc-schema
 EXPOSE 50000
 ENV NODE_ENV=production
 CMD ["node", "dist/index.js"]

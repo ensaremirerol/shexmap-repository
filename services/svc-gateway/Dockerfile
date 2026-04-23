@@ -6,30 +6,43 @@
 FROM node:22-alpine AS dev
 WORKDIR /app
 
-COPY svc-gateway/package.json ./
-RUN npm install
+COPY package.json                   ./
+COPY shared/package.json            ./shared/package.json
+COPY svc-gateway/package.json       ./svc-gateway/package.json
+RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-gateway
 
-COPY svc-gateway/src/      ./src/
-COPY svc-gateway/tsconfig.json ./
-COPY shared/proto/      ./proto/
+COPY shared/src/          ./shared/src/
+COPY shared/tsconfig.json ./shared/tsconfig.json
+RUN npm run build --workspace=@shexmap/shared
 
+COPY svc-gateway/src/         ./svc-gateway/src/
+COPY svc-gateway/tsconfig.json ./svc-gateway/tsconfig.json
+COPY shared/proto/            ./svc-gateway/proto/
+
+WORKDIR /app/svc-gateway
 EXPOSE 50000
 ENV NODE_ENV=development
 CMD ["npx", "tsx", "watch", "src/index.ts"]
 
 # ── builder ────────────────────────────────────────────────────────────────────
 FROM dev AS builder
+WORKDIR /app/svc-gateway
 RUN npx tsc
 
 # ── production ─────────────────────────────────────────────────────────────────
 FROM node:22-alpine
 WORKDIR /app
 
-COPY --from=builder /app/dist         ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY shared/proto/                    ./proto/
-COPY svc-gateway/package.json         ./
+COPY package.json                   ./
+COPY shared/package.json            ./shared/package.json
+COPY svc-gateway/package.json       ./svc-gateway/package.json
+RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-gateway --omit=dev
 
+COPY --from=builder /app/shared/dist      ./shared/dist/
+COPY --from=builder /app/svc-gateway/dist ./svc-gateway/dist/
+COPY shared/proto/                        ./svc-gateway/proto/
+
+WORKDIR /app/svc-gateway
 EXPOSE 50000
 ENV NODE_ENV=production
 CMD ["node", "dist/index.js"]

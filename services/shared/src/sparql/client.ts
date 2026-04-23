@@ -2,6 +2,7 @@ import { SimpleClient } from 'sparql-http-client';
 import type { Prefixes } from '../rdf/prefixes.js';
 import { sparqlPrefixes } from '../rdf/prefixes.js';
 
+export type { SimpleClient };
 export type SparqlBinding = Record<string, { value: string; type: string; datatype?: string }>;
 
 interface SparqlSelectResult {

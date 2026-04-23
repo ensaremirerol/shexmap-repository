@@ -1,0 +1,5 @@
+{
+  "name": "shexmap-services",
+  "private": true,
+  "workspaces": ["shared", "svc-*"]
+}

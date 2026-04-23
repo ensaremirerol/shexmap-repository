@@ -1,4 +1,7 @@
-# ── Stage 1: Build React frontend ────────────────────────────────────────────
+# Nginx reverse proxy for the microservices stack.
+# Routes /api/* and /sparql to svc-gateway; serves React SPA for everything else.
+#
+# ── Stage 1: Build React frontend ─────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 
@@ -19,9 +22,8 @@ ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED
 
 RUN npm run build
 
-# ── Stage 2: Nginx serving frontend + reverse-proxying API and SPARQL ────────
+# ── Stage 2: Nginx reverse proxy + static SPA ─────────────────────────────────
 FROM nginx:alpine
-ARG NGINX_CONF=docker/nginx/nginx.conf
-COPY ${NGINX_CONF} /etc/nginx/nginx.conf
+COPY docker/nginx/nginx.services.conf /etc/nginx/nginx.conf
 COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 EXPOSE 80
