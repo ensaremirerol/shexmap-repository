@@ -5,7 +5,11 @@ const opt = (name: string, fallback: string) => process.env[name] ?? fallback;
 export const config = {
   port: parseInt(opt('PORT', '50000'), 10),
   logLevel: opt('LOG_LEVEL', 'info'),
-  authEnabled: opt('AUTH_ENABLED', 'false') === 'true',
+  githubClientId:  opt('OAUTH_GITHUB_CLIENT_ID', ''),
+  githubClientSecret: opt('OAUTH_GITHUB_CLIENT_SECRET', ''),
+  // Auth is enabled when a GitHub client ID is present — no separate flag needed
+  get authEnabled() { return !!this.githubClientId; },
+
   baseNamespace: opt('BASE_NAMESPACE', 'https://w3id.org/shexmap/'),
 
   jwt: {
@@ -13,22 +17,7 @@ export const config = {
     expiry: parseInt(opt('JWT_EXPIRY', '86400'), 10),
   },
 
-  callbackBaseUrl: opt('OAUTH_CALLBACK_BASE_URL', 'http://localhost'),
-
-  oauth: {
-    github: {
-      clientId: opt('OAUTH_GITHUB_CLIENT_ID', ''),
-      clientSecret: opt('OAUTH_GITHUB_CLIENT_SECRET', ''),
-    },
-    orcid: {
-      clientId: opt('OAUTH_ORCID_CLIENT_ID', ''),
-      clientSecret: opt('OAUTH_ORCID_CLIENT_SECRET', ''),
-    },
-    google: {
-      clientId: opt('OAUTH_GOOGLE_CLIENT_ID', ''),
-      clientSecret: opt('OAUTH_GOOGLE_CLIENT_SECRET', ''),
-    },
-  },
+  callbackBaseUrl: opt('OAUTH_CALLBACK_BASE_URL', 'http://localhost:8090'),
 
   sqlitePath: opt('SQLITE_PATH', './data/auth.db'),
 

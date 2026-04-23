@@ -5,7 +5,8 @@ const opt = (name: string, fallback: string) => process.env[name] ?? fallback;
 export const config = {
   port: parseInt(opt('PORT', '50000'), 10),
   logLevel: opt('LOG_LEVEL', 'info'),
-  authEnabled: opt('AUTH_ENABLED', 'false') === 'true',
+  // Mirror svc-auth: auth is enabled when a GitHub client ID is present
+  authEnabled: !!opt('OAUTH_GITHUB_CLIENT_ID', ''),
 
   jwt: {
     secret: opt('JWT_SECRET', 'dev-secret-change-in-production'),

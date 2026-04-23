@@ -26,7 +26,7 @@ services:
       NODE_ENV: production
       PORT: "50000"
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
       SVC_VALIDATE_ADDR: svc-validate:50000
       SVC_SHEXMAP_ADDR: svc-shexmap:50000
       SVC_PAIRING_ADDR: svc-pairing:50000
@@ -145,16 +145,11 @@ services:
       NODE_ENV: production
       PORT: "50000"
       LOG_LEVEL: info
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
       JWT_EXPIRY: ${JWT_EXPIRY:-86400}
       OAUTH_CALLBACK_BASE_URL: ${OAUTH_CALLBACK_BASE_URL:-http://localhost:8090}
       OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
       OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
-      OAUTH_ORCID_CLIENT_ID: ${OAUTH_ORCID_CLIENT_ID:-}
-      OAUTH_ORCID_CLIENT_SECRET: ${OAUTH_ORCID_CLIENT_SECRET:-}
-      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
-      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
       SQLITE_PATH: /data/auth.db
       QLEVER_SPARQL_URL: http://qlever:7001/sparql
       QLEVER_UPDATE_URL: http://qlever:7001/update
@@ -178,7 +173,7 @@ services:
       NODE_ENV: production
       PORT: "50000"
       LOG_LEVEL: info
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
       QLEVER_SPARQL_URL: http://qlever:7001/sparql
       QLEVER_UPDATE_URL: http://qlever:7001/update
       QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
