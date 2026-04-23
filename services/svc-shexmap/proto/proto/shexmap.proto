@@ -1,0 +1,118 @@
+syntax = "proto3";
+package shexmap.map;
+
+service ShexMapService {
+  rpc ListShexMaps       (ListShexMapsRequest)    returns (ListShexMapsResponse);
+  rpc GetShexMap         (GetShexMapRequest)       returns (ShexMapResponse);
+  rpc CreateShexMap      (CreateShexMapRequest)    returns (ShexMapResponse);
+  rpc UpdateShexMap      (UpdateShexMapRequest)    returns (ShexMapResponse);
+  rpc DeleteShexMap      (DeleteShexMapRequest)    returns (DeleteResponse);
+
+  rpc ListVersions       (ListVersionsRequest)     returns (ListVersionsResponse);
+  rpc GetVersion         (GetVersionRequest)       returns (VersionResponse);
+  rpc GetVersionContent  (GetVersionRequest)       returns (VersionContentResponse);
+  rpc SaveVersion        (SaveVersionRequest)      returns (VersionResponse);
+}
+
+message ListShexMapsRequest {
+  string q                  = 1;
+  string tag                = 2;
+  string author             = 3;
+  string schema_url         = 4;
+  string has_map_annotations = 5;
+  string map_variable       = 6;
+  int32  page               = 7;
+  int32  limit              = 8;
+  string sort               = 9;
+  string order              = 10;
+}
+
+message ShexMap {
+  string          id                  = 1;
+  string          title               = 2;
+  string          description         = 3;
+  string          content             = 4;
+  string          sample_turtle_data  = 5;
+  string          file_name           = 6;
+  string          file_format         = 7;
+  string          source_url          = 8;
+  string          schema_url          = 9;
+  repeated string tags                = 10;
+  string          version             = 11;
+  string          author_id           = 12;
+  string          author_name         = 13;
+  string          created_at          = 14;
+  string          modified_at         = 15;
+  int32           stars               = 16;
+  bool            has_map_annotations = 17;
+  repeated string map_variables       = 18;
+}
+
+message ListShexMapsResponse {
+  repeated ShexMap items = 1;
+  int32            total = 2;
+}
+
+message GetShexMapRequest  { string id = 1; }
+message DeleteShexMapRequest { string id = 1; }
+
+message ShexMapResponse {
+  ShexMap map    = 1;
+  bool    found  = 2;
+}
+
+message CreateShexMapRequest {
+  string          title               = 1;
+  string          description         = 2;
+  string          content             = 3;
+  string          sample_turtle_data  = 4;
+  string          file_name           = 5;
+  string          file_format         = 6;
+  string          source_url          = 7;
+  string          schema_url          = 8;
+  repeated string tags                = 9;
+  string          version             = 10;
+}
+
+message UpdateShexMapRequest {
+  string          id                  = 1;
+  string          title               = 2;
+  string          description         = 3;
+  string          source_url          = 4;
+  string          schema_url          = 5;
+  string          sample_turtle_data  = 6;
+  repeated string tags                = 7;
+  string          version             = 8;
+  bool            has_title           = 9;
+  bool            has_description     = 10;
+  bool            has_source_url      = 11;
+  bool            has_schema_url      = 12;
+  bool            has_sample_turtle   = 13;
+  bool            has_tags            = 14;
+  bool            has_version         = 15;
+}
+
+message DeleteResponse { bool success = 1; }
+
+message ListVersionsRequest  { string map_id = 1; }
+message GetVersionRequest    { string map_id = 1; int32 version_number = 2; }
+
+message VersionMeta {
+  string id             = 1;
+  string map_id         = 2;
+  int32  version_number = 3;
+  string commit_message = 4;
+  string author_id      = 5;
+  string author_name    = 6;
+  string created_at     = 7;
+}
+
+message ListVersionsResponse { repeated VersionMeta versions = 1; }
+message VersionResponse      { VersionMeta version = 1; bool found = 2; }
+message VersionContentResponse { VersionMeta meta = 1; string content = 2; }
+
+message SaveVersionRequest {
+  string map_id         = 1;
+  string content        = 2;
+  string commit_message = 3;
+}

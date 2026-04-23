@@ -1,6 +1,6 @@
 # svc-sparql-proxy — Public SPARQL Endpoint
 
-**Protocol:** HTTP/REST (port 3007) — must be HTTP; SPARQL protocol is HTTP by spec
+**Protocol:** HTTP/REST (port 50000) — must be HTTP; SPARQL protocol is HTTP by spec
 **Dependencies:** QLever (transparent relay)
 
 ## Responsibility
@@ -32,7 +32,7 @@ Because this service sits behind svc-gateway on the internal Docker network, tru
 ```
 src/
   index.ts
-  config.ts              PORT=3007, QLEVER_SPARQL_URL, QLEVER_UPDATE_URL,
+  config.ts              PORT=50000, QLEVER_SPARQL_URL, QLEVER_UPDATE_URL,
                          QLEVER_ACCESS_TOKEN, AUTH_ENABLED
   server.ts              Fastify HTTP server
   routes/

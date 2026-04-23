@@ -1,6 +1,6 @@
 # svc-gateway — API Gateway
 
-**Protocol:** HTTP/REST inbound (port 3000), gRPC outbound to backend services, HTTP outbound to svc-auth and svc-sparql-proxy
+**Protocol:** HTTP/REST inbound (port 50000), gRPC outbound to backend services, HTTP outbound to svc-auth and svc-sparql-proxy
 **Dependencies:** all backend services
 
 ## Responsibility
@@ -9,16 +9,16 @@ Single entry point for all browser traffic. Verifies JWTs, builds `AuthContext`,
 
 ```
 Browser (HTTP + JWT)
-  └── svc-gateway:3000
+  └── svc-gateway:50000
         ├── verify JWT → AuthContext metadata
-        ├── POST /api/v1/validate    → gRPC svc-validate:50051
-        ├── /api/v1/shexmaps/*       → gRPC svc-shexmap:50052
-        ├── /api/v1/pairings/*       → gRPC svc-pairing:50053
-        ├── /api/v1/coverage/*       → gRPC svc-coverage:50054
-        ├── /api/v1/schemas          → gRPC svc-schema:50055
-        ├── /api/v1/auth/*           → HTTP  svc-auth:3006
-        ├── /api/v1/users/*          → HTTP  svc-auth:3006
-        └── /sparql                  → HTTP  svc-sparql-proxy:3007 (+ x-auth-user-id header)
+        ├── POST /api/v1/validate    → gRPC svc-validate:50000
+        ├── /api/v1/shexmaps/*       → gRPC svc-shexmap:50000
+        ├── /api/v1/pairings/*       → gRPC svc-pairing:50000
+        ├── /api/v1/coverage/*       → gRPC svc-coverage:50000
+        ├── /api/v1/schemas          → gRPC svc-schema:50000
+        ├── /api/v1/auth/*           → HTTP  svc-auth:50000
+        ├── /api/v1/users/*          → HTTP  svc-auth:50000
+        └── /sparql                  → HTTP  svc-sparql-proxy:50000 (+ x-auth-user-id header)
 ```
 
 ## Coarse AuthZ (gateway level)
@@ -55,11 +55,11 @@ import * as protoLoader from '@grpc/proto-loader';
 
 const PROTO_DIR = join(__dirname, '../../../shared/proto');
 
-export const validateClient = loadClient('validate.proto', 'shexmap.validate.ValidateService', 'svc-validate:50051');
-export const shexmapClient  = loadClient('shexmap.proto',  'shexmap.map.ShexMapService',       'svc-shexmap:50052');
-export const pairingClient  = loadClient('pairing.proto',  'shexmap.pairing.PairingService',   'svc-pairing:50053');
-export const coverageClient = loadClient('coverage.proto', 'shexmap.coverage.CoverageService', 'svc-coverage:50054');
-export const schemaClient   = loadClient('schema.proto',   'shexmap.schema.SchemaService',     'svc-schema:50055');
+export const validateClient = loadClient('validate.proto', 'shexmap.validate.ValidateService', 'svc-validate:50000');
+export const shexmapClient  = loadClient('shexmap.proto',  'shexmap.map.ShexMapService',       'svc-shexmap:50000');
+export const pairingClient  = loadClient('pairing.proto',  'shexmap.pairing.PairingService',   'svc-pairing:50000');
+export const coverageClient = loadClient('coverage.proto', 'shexmap.coverage.CoverageService', 'svc-coverage:50000');
+export const schemaClient   = loadClient('schema.proto',   'shexmap.schema.SchemaService',     'svc-schema:50000');
 
 function buildAuthMeta(ctx: AuthContext): grpc.Metadata {
   const md = new grpc.Metadata();
@@ -103,7 +103,7 @@ function grpcCall<Req, Res>(
 ```
 src/
   index.ts
-  config.ts              PORT=3000, JWT_SECRET, AUTH_ENABLED,
+  config.ts              PORT=50000, JWT_SECRET, AUTH_ENABLED,
                          SVC_VALIDATE_ADDR, SVC_SHEXMAP_ADDR, SVC_PAIRING_ADDR,
                          SVC_COVERAGE_ADDR, SVC_SCHEMA_ADDR,
                          SVC_AUTH_URL, SVC_SPARQL_PROXY_URL

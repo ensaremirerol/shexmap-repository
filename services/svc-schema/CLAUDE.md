@@ -1,6 +1,6 @@
 # svc-schema — Schema Catalogue
 
-**Protocol:** gRPC (port 50055)
+**Protocol:** gRPC (port 50000)
 **Dependencies:** QLever (read-only SPARQL SELECT)
 
 ## Responsibility
@@ -24,7 +24,7 @@ No auth enforcement — public read.
 ```
 src/
   index.ts
-  config.ts              PORT=50055, QLEVER_SPARQL_URL, QLEVER_ACCESS_TOKEN, BASE_NAMESPACE
+  config.ts              PORT=50000, QLEVER_SPARQL_URL, QLEVER_ACCESS_TOKEN, BASE_NAMESPACE
   server.ts
   sparql.ts
   services/

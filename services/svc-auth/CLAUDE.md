@@ -1,6 +1,6 @@
 # svc-auth — Authentication + User Management
 
-**Protocol:** HTTP/REST (port 3006) — must be HTTP because OAuth2 callbacks are HTTP redirects
+**Protocol:** HTTP/REST (port 50000) — must be HTTP because OAuth2 callbacks are HTTP redirects
 **Dependencies:** QLever (user upsert, API key storage), OAuth2 providers
 
 ## Responsibility
@@ -37,7 +37,7 @@ JWT secret: `JWT_SECRET` env var (shared with svc-gateway, which verifies but ne
 ```
 src/
   index.ts
-  config.ts              PORT=3006, JWT_SECRET, JWT_EXPIRY, AUTH_ENABLED,
+  config.ts              PORT=50000, JWT_SECRET, JWT_EXPIRY, AUTH_ENABLED,
                          OAUTH_CALLBACK_BASE_URL, OAUTH_GITHUB_CLIENT_ID/SECRET,
                          OAUTH_ORCID_CLIENT_ID/SECRET, OAUTH_GOOGLE_CLIENT_ID/SECRET,
                          QLEVER_SPARQL_URL, QLEVER_UPDATE_URL, QLEVER_ACCESS_TOKEN,

@@ -1,6 +1,6 @@
 # svc-validate — ShEx Validation Engine
 
-**Protocol:** gRPC (port 50051)
+**Protocol:** gRPC (port 50000)
 **Dependencies:** none — pure CPU computation, no QLever, no auth
 
 ## Responsibility
@@ -39,40 +39,60 @@ src/
   services/
     shex.service.ts         parseShEx(content, shapeBase) — wraps @shexjs/parser
     validate.service.ts     validate(sourceShEx, shapeBase, ...) — full validation pipeline
+proto/
+  validate.proto            copied from services/shared/proto/ at build time
 test/
   validate.test.ts          pure unit tests, zero mocks needed
+Dockerfile                  multi-stage (dev / builder / production); build from services/ context
 ```
 
-## Implementation notes
+## Running locally
 
-`svc-validate` has **already been scaffolded** as a reference implementation. See the existing files in `src/`. All business logic is migrated from `api/src/services/shexmap-validate.service.ts`.
+```bash
+# Install deps and copy proto files
+npm install
+cp -r ../shared/proto ./proto
 
-The only config this service reads: `PORT` (default 50051), `BASE_NAMESPACE` (used as ShEx `shapeBase`).
+# Hot-reload dev mode
+npm run dev
 
-## TDD
+# Build (compiles TS + copies protos to ./proto)
+npm run build
 
-Tests need **zero mocks** because the service has zero I/O:
+# Run production build
+npm start
+
+# Tests
+npm test
+```
+
+## Docker
+
+```bash
+# From the services/ directory:
+docker build -f svc-validate/Dockerfile -t svc-validate .             # production
+docker build -f svc-validate/Dockerfile --target dev -t svc-validate:dev .  # dev (tsx watch)
+```
+
+The proto file is resolved at runtime from `./proto/validate.proto` (next to the service root). The `dev` Docker stage mounts source at `/app/src` and uses `tsx watch` for hot-reload; the production stage contains only compiled `dist/` and `node_modules`.
+
+## Config
+
+| Env var | Default | Description |
+|---------|---------|-------------|
+| `PORT` | `50000` | gRPC listen port |
+| `LOG_LEVEL` | `info` | Log verbosity |
+| `BASE_NAMESPACE` | `https://w3id.org/shexmap/` | ShEx shapeBase prefix |
+
+## Tests
+
+Zero mocks needed because the service has zero I/O:
 
 ```ts
 import { validate } from '../src/services/validate.service.js';
 const result = await validate(shexString, shapeBase, rdfString, focusNode);
 expect(result.bindings['http://...#given']).toBe('Alice');
 ```
-
-Run: `npm test` inside this directory.
-
-## Dependencies
-
-```json
-{
-  "@grpc/grpc-js": "^1.10.0",
-  "@grpc/proto-loader": "^0.7.0",
-  "@shexjs/parser": "^1.0.0-alpha.28",
-  "n3": "^1.17.0",
-  "dotenv": "^16.0.0"
-}
-```
-
 
 ---
 

@@ -1,6 +1,6 @@
 # svc-pairing — ShExMap Pairing CRUD + Versioning
 
-**Protocol:** gRPC (port 50053)
+**Protocol:** gRPC (port 50000)
 **Dependencies:** QLever (SPARQL), svc-shexmap (optional existence check via gRPC)
 
 ## Responsibility
@@ -39,7 +39,7 @@ Same pattern as svc-shexmap:
 ```
 src/
   index.ts
-  config.ts              PORT=50053, QLEVER_*, BASE_NAMESPACE,
+  config.ts              PORT=500, QLEVER_*, BASE_NAMESPACE,
                          SVC_SHEXMAP_URL (gRPC address for existence check),
                          STRICT_MAP_EXISTS_CHECK=true/false
   server.ts

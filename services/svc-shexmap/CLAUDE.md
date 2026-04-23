@@ -1,6 +1,6 @@
 # svc-shexmap — ShExMap CRUD + Versioning
 
-**Protocol:** gRPC (port 50052)
+**Protocol:** gRPC (port 50000)
 **Dependencies:** QLever (SPARQL), svc-validate (HTTP call on create if content provided)
 
 ## Responsibility
@@ -42,7 +42,7 @@ Return `grpc.status.UNAUTHENTICATED` (code 16) when auth required but no user. R
 ```
 src/
   index.ts               entry point
-  config.ts              PORT=50052, QLEVER_SPARQL_URL, QLEVER_UPDATE_URL,
+  config.ts              PORT=50000, QLEVER_SPARQL_URL, QLEVER_UPDATE_URL,
                          QLEVER_ACCESS_TOKEN, BASE_NAMESPACE, SVC_VALIDATE_URL
   server.ts              grpc.Server + ShexMapService handler
   sparql.ts              createSparqlClient + buildPrefixes (wires config → shared)

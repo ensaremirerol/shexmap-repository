@@ -1,12 +1,12 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { validate } from './services/validate.service.js';
+import { fileURLToPath } from 'url';
 import { config } from './config.js';
+import { validate } from './services/validate.service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = join(__dirname, '../../../shared/proto/validate.proto');
+const PROTO_PATH = join(__dirname, '..', 'proto', 'validate.proto');
 const SHAPE_BASE = `${config.baseNamespace}shapes/`;
 
 const packageDef = protoLoader.loadSync(PROTO_PATH, {
@@ -44,15 +44,15 @@ const validateHandler: grpc.handleUnaryCall<any, any> = async (call, callback) =
       target_node || undefined,
     );
     callback(null, {
-      shex_valid:    result.shexValid,
-      shex_errors:   result.shexErrors,
-      rdf_valid:     result.rdfValid ?? false,
-      rdf_errors:    result.rdfErrors ?? [],
-      valid:         result.valid,
-      binding_tree:  result.bindingTree.map(bindingNodeToProto),
-      bindings:      result.bindings,
-      target_rdf:    result.targetRdf ?? '',
-      errors:        result.errors,
+      shex_valid: result.shexValid,
+      shex_errors: result.shexErrors,
+      rdf_valid: result.rdfValid ?? false,
+      rdf_errors: result.rdfErrors ?? [],
+      valid: result.valid,
+      binding_tree: result.bindingTree.map(bindingNodeToProto),
+      bindings: result.bindings,
+      target_rdf: result.targetRdf ?? '',
+      errors: result.errors,
     });
   } catch (err: any) {
     callback({ code: grpc.status.INTERNAL, message: err.message });
