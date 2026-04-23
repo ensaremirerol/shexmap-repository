@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import AppShell from './components/layout/AppShell.js';
+import ProtectedRoute from './components/auth/ProtectedRoute.js';
 import HomePage from './pages/HomePage.js';
 import BrowsePage from './pages/BrowsePage.js';
 import PairingPage from './pages/PairingPage.js';
@@ -9,8 +10,9 @@ import CoveragePage from './pages/CoveragePage.js';
 import SparqlPage from './pages/SparqlPage.js';
 import DashboardPage from './pages/DashboardPage.js';
 import ValidatePage from './pages/ValidatePage.js';
-import CreatePairingPage from './pages/CreatePairingPage.js';
 import CreateMapPage from './pages/CreateMapPage.js';
+import CreatePairingPage from './pages/CreatePairingPage.js';
+import AuthCallbackPage from './pages/AuthCallbackPage.js';
 import NotFoundPage from './pages/NotFoundPage.js';
 
 export default function App() {
@@ -27,7 +29,15 @@ export default function App() {
         <Route path="/query" element={<SparqlPage />} />
         <Route path="/validate" element={<ValidatePage />} />
         <Route path="/pairings/create" element={<CreatePairingPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AppShell>

@@ -1,7 +1,33 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import NavBar from './NavBar.js';
+import { useAuthStore } from '../../store/authStore.js';
+import { fetchAuthStatus } from '../../api/auth.js';
 
 export default function AppShell({ children }: { children: ReactNode }) {
+  const { token, setToken, logout } = useAuthStore();
+
+  useEffect(() => {
+    if (!token) return;
+
+    fetchAuthStatus()
+      .then((status) => {
+        if (status.authenticated && status.user) {
+          setToken(token, {
+            sub: status.user.sub,
+            name: status.user.name ?? status.user.sub,
+            email: status.user.email,
+          });
+        } else {
+          logout();
+        }
+      })
+      .catch(() => {
+        logout();
+      });
+    // Run only once on initial mount to rehydrate persisted token
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <NavBar />
