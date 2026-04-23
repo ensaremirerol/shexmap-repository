@@ -31,7 +31,7 @@ export default fp(async (fastify: FastifyInstance) => {
         auth: GITHUB_CONFIGURATION,
       },
       startRedirectPath: '/auth/login/github',
-      callbackUri: `${config.callbackBaseUrl}/auth/callback?provider=github`,
+      callbackUri: `${config.callbackBaseUrl}/api/v1/auth/callback?provider=github`,
       scope: ['read:user', 'user:email'],
     });
   }
@@ -47,7 +47,7 @@ export default fp(async (fastify: FastifyInstance) => {
         auth: GOOGLE_CONFIGURATION,
       },
       startRedirectPath: '/auth/login/google',
-      callbackUri: `${config.callbackBaseUrl}/auth/callback?provider=google`,
+      callbackUri: `${config.callbackBaseUrl}/api/v1/auth/callback?provider=google`,
       scope: ['profile', 'email'],
     });
   }
@@ -68,7 +68,7 @@ export default fp(async (fastify: FastifyInstance) => {
         },
       },
       startRedirectPath: '/auth/login/orcid',
-      callbackUri: `${config.callbackBaseUrl}/auth/callback?provider=orcid`,
+      callbackUri: `${config.callbackBaseUrl}/api/v1/auth/callback?provider=orcid`,
       scope: ['/authenticate'],
     });
   }

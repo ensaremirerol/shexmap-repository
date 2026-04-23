@@ -24,11 +24,20 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       method: request.method,
       headers,
       body: ['GET', 'HEAD'].includes(request.method) ? undefined : JSON.stringify(request.body),
+      redirect: 'manual',  // pass redirects to the browser; do not follow internally
     });
 
     reply.code(res.status);
     for (const [k, v] of res.headers.entries()) {
-      if (k.toLowerCase() !== 'transfer-encoding') reply.header(k, v);
+      if (k.toLowerCase() === 'transfer-encoding') continue;
+      // Rewrite internal svc-auth paths to public gateway paths so the browser
+      // follows them through nginx rather than trying to reach svc-auth directly.
+      // e.g. Location: /auth/login/github → /api/v1/auth/login/github
+      if (k.toLowerCase() === 'location' && v.startsWith('/auth/')) {
+        reply.header(k, `/api/v1${v}`);
+        continue;
+      }
+      reply.header(k, v);
     }
     const text = await res.text();
     return reply.send(text);
