@@ -5,6 +5,10 @@ services:
     build:
       context: .
       dockerfile: docker/nginx/Dockerfile.services
+      args:
+        VITE_AUTH_ENABLED: ${VITE_AUTH_ENABLED:-false}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_SPARQL_ENDPOINT: ${VITE_SPARQL_ENDPOINT:-/sparql}
     ports:
       - "8090:80"
     depends_on:
