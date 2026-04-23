@@ -1,56 +1,35 @@
 import type { FastifyPluginAsync } from 'fastify';
+import httpProxy from '@fastify/http-proxy';
 import { config } from '../config.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
 
-  const proxyTo = async (
-    request: import('fastify').FastifyRequest,
-    reply: import('fastify').FastifyReply,
-    targetPath: string,
-  ) => {
-    const url = new URL(targetPath, config.svcAuthUrl);
-    if (request.url.includes('?')) {
-      const qs = request.url.split('?')[1];
-      url.search = qs ?? '';
-    }
-
-    const headers: Record<string, string> = {};
-    for (const [k, v] of Object.entries(request.headers)) {
-      if (typeof v === 'string') headers[k] = v;
-    }
-    headers['x-forwarded-host'] = request.hostname;
-
-    const res = await fetch(url.toString(), {
-      method: request.method,
-      headers,
-      body: ['GET', 'HEAD'].includes(request.method) ? undefined : JSON.stringify(request.body),
-      redirect: 'manual',  // pass redirects to the browser; do not follow internally
-    });
-
-    reply.code(res.status);
-    for (const [k, v] of res.headers.entries()) {
-      if (k.toLowerCase() === 'transfer-encoding') continue;
-      // Rewrite internal svc-auth paths to public gateway paths so the browser
-      // follows them through nginx rather than trying to reach svc-auth directly.
-      // e.g. Location: /auth/login/github → /api/v1/auth/login/github
-      if (k.toLowerCase() === 'location' && v.startsWith('/auth/')) {
-        reply.header(k, `/api/v1${v}`);
-        continue;
-      }
-      reply.header(k, v);
-    }
-    const text = await res.text();
-    return reply.send(text);
-  };
-
-  fastify.all('/api/v1/auth/*', async (request, reply) => {
-    const sub = (request.params as Record<string, string>)['*'] ?? '';
-    return proxyTo(request, reply, `/auth/${sub}`);
+  // Proxy /api/v1/auth/* → svc-auth /auth/*
+  // @fastify/http-proxy uses undici with maxRedirections:0, so 302s from
+  // svc-auth (e.g. OAuth start redirects) are passed straight to the browser
+  // rather than followed internally. Location headers with internal paths are
+  // rewritten to go through the public /api/v1/ prefix so the browser can
+  // follow them through nginx → gateway.
+  await fastify.register(httpProxy, {
+    upstream: config.svcAuthUrl,
+    prefix: '/api/v1/auth',
+    rewritePrefix: '/auth',
+    replyOptions: {
+      rewriteHeaders: (headers) => {
+        const loc = headers['location'];
+        if (typeof loc === 'string' && loc.startsWith('/auth/')) {
+          return { ...headers, location: `/api/v1${loc}` };
+        }
+        return headers;
+      },
+    },
   });
 
-  fastify.all('/api/v1/users/*', async (request, reply) => {
-    const sub = (request.params as Record<string, string>)['*'] ?? '';
-    return proxyTo(request, reply, `/users/${sub}`);
+  // Proxy /api/v1/users/* → svc-auth /users/*
+  await fastify.register(httpProxy, {
+    upstream: config.svcAuthUrl,
+    prefix: '/api/v1/users',
+    rewritePrefix: '/users',
   });
 
 };
