@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import sensible from '@fastify/sensible';
 import { config } from './config.js';
 import jwtPlugin from './plugins/jwt.js';
@@ -18,6 +19,11 @@ export async function buildServer() {
 
   await fastify.register(cors);
   await fastify.register(sensible);
+  // @fastify/cookie must be registered before @fastify/oauth2 — it uses
+  // signed cookies to store the CSRF state between the login redirect and callback
+  await fastify.register(cookie, {
+    secret: process.env['COOKIE_SECRET'] ?? 'dev-cookie-secret-change-in-production',
+  });
   await fastify.register(jwtPlugin);
   await fastify.register(oauthPlugin);
 
