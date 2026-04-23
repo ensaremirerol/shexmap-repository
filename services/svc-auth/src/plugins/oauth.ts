@@ -35,20 +35,19 @@ export default fp(async (fastify: FastifyInstance) => {
     startRedirectPath: '/auth/login/github',
     callbackUri: `${config.callbackBaseUrl}/api/v1/auth/callback?provider=github`,
     scope: ['read:user', 'user:email'],
-    generateStateFunction: (_request: FastifyRequest) => {
+    generateStateFunction: function(this: FastifyInstance, _request: FastifyRequest) {
       pruneStates();
       const state = randomBytes(16).toString('hex');
       pendingStates.set(state, Date.now());
       return state;
     },
-    checkStateFunction: (request: FastifyRequest, callback: (err?: Error) => void) => {
+    checkStateFunction: async function(this: FastifyInstance, request: FastifyRequest): Promise<boolean> {
       const state = (request.query as Record<string, string>)['state'];
       if (state && pendingStates.has(state)) {
         pendingStates.delete(state);
-        callback();
-      } else {
-        callback(new Error('Invalid or expired state'));
+        return true;
       }
+      throw new Error('Invalid or expired state');
     },
   });
 });

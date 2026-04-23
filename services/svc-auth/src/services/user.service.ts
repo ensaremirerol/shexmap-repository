@@ -1,5 +1,6 @@
 import { sparqlSelect, sparqlUpdate } from '@shexmap/shared';
-import type { SimpleClient, Prefixes } from '@shexmap/shared';
+import type { Prefixes, createSparqlClient } from '@shexmap/shared';
+type SimpleClient = ReturnType<typeof createSparqlClient>;
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 const { hash: bcryptHash, compare: bcryptCompare } = bcrypt;
