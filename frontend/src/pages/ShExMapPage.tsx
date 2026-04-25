@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -7,9 +7,11 @@ import {
   useShExMapVersions,
   useSaveShExMapVersion,
   useUpdateShExMap,
+  useCreateShExMap,
   type ShExMapVersion,
 } from '../api/shexmaps.js';
 import { apiClient } from '../api/client.js';
+import { useAuthStore } from '../store/authStore.js';
 import ShExEditor from '../components/editor/ShExEditor.js';
 import {
   TurtlePanel,
@@ -102,10 +104,13 @@ function MetaRow({ label, value, mono }: { label: string; value: string; mono?: 
 
 export default function ShExMapPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const { data: map, isLoading, isError } = useShExMap(id ?? '');
   const versionsQuery   = useShExMapVersions(id ?? '');
   const saveVersion     = useSaveShExMapVersion(id ?? '');
   const updateMeta      = useUpdateShExMap(id ?? '');
+  const forkMap         = useCreateShExMap();
 
   const [shexContent, setShexContent]       = useState('');
   const [loadedVersionNum, setLoadedVersionNum] = useState<number | null>(null);
@@ -204,6 +209,24 @@ export default function ShExMapPage() {
     </div>
   );
 
+  const isOwner = !!user && user.sub === map.authorId;
+  const mapSnapshot = map;
+
+  async function handleFork() {
+    const forked = await forkMap.mutateAsync({
+      title:            `Fork of ${mapSnapshot.title}`,
+      description:      mapSnapshot.description,
+      content:          shexContent || mapSnapshot.content,
+      sampleTurtleData: mapSnapshot.sampleTurtleData,
+      sourceUrl:        mapSnapshot.sourceUrl,
+      schemaUrl:        mapSnapshot.schemaUrl,
+      tags:             mapSnapshot.tags,
+      version:          mapSnapshot.version,
+      fileFormat:       mapSnapshot.fileFormat,
+    });
+    navigate(`/maps/${forked.id}`);
+  }
+
   const serverVersions = (versionsQuery.data ?? []).map((v: ShExMapVersion) => ({
     versionNumber: v.versionNumber,
     commitMessage: v.commitMessage,
@@ -289,14 +312,31 @@ export default function ShExMapPage() {
             <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono ml-1">
               {map.fileFormat}
             </span>
-            <button
-              onClick={() => setShowMeta((s) => !s)}
-              className="ml-auto text-xs text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              {showMeta ? 'Hide metadata ▲' : 'Edit metadata ▼'}
-            </button>
+            {isOwner ? (
+              <button
+                onClick={() => setShowMeta((s) => !s)}
+                className="ml-auto text-xs text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                {showMeta ? 'Hide metadata ▲' : 'Edit metadata ▼'}
+              </button>
+            ) : user ? (
+              <button
+                onClick={handleFork}
+                disabled={forkMap.isPending}
+                className="ml-auto flex items-center gap-1.5 text-xs bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-3 py-1 rounded font-medium transition-colors"
+              >
+                {forkMap.isPending ? 'Forking…' : (
+                  <>
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+                      <path d="M5 5.372v.878c0 .414.336.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/>
+                    </svg>
+                    Fork
+                  </>
+                )}
+              </button>
+            ) : null}
           </div>
-          {showMeta && (
+          {isOwner && showMeta && (
             <MapMetaForm
               map={map}
               onSave={(d) => updateMeta.mutate(d)}
@@ -312,9 +352,9 @@ export default function ShExMapPage() {
           fileName={map.fileName}
           fileFormat={map.fileFormat}
           height={400}
-          readOnly={false}
+          readOnly={!isOwner}
           serverVersions={serverVersions}
-          onSaveServerVersion={(c, msg) => saveVersion.mutate({ content: c, commitMessage: msg })}
+          onSaveServerVersion={isOwner ? (c, msg) => saveVersion.mutate({ content: c, commitMessage: msg }) : undefined}
           isSavingServerVersion={saveVersion.isPending}
           onLoadServerVersion={handleLoadVersion}
           onChange={setShexContent}
