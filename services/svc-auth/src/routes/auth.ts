@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../config.js';
 import { sparqlClient, prefixes } from '../sparql.js';
-import { upsertUser } from '../services/user.service.js';
+import { upsertUser, getUserById } from '../services/user.service.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
 
@@ -11,7 +11,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
     try {
       await request.jwtVerify();
-      return { enabled: true, authenticated: true, user: request.user };
+      const { sub } = request.user as { sub: string; role: string };
+      const profile = await getUserById(sparqlClient, prefixes, sub);
+      return {
+        enabled: true,
+        authenticated: true,
+        user: { sub, role: (request.user as any).role, name: profile?.name, email: profile?.email },
+      };
     } catch {
       return { enabled: true, authenticated: false, user: null };
     }
