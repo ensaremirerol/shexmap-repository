@@ -20,6 +20,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     for (const [k, v] of Object.entries(request.headers)) {
       if (typeof v === 'string') headers[k] = v;
     }
+    // If no Bearer token in header, extract auth_token cookie and inject as Bearer
+    // so svc-auth's request.jwtVerify() sees a token without needing cookie parsing
+    if (!headers['authorization']) {
+      const cookieHeader = headers['cookie'] ?? '';
+      const match = cookieHeader.match(/(?:^|;\s*)auth_token=([^;]+)/);
+      if (match?.[1]) headers['authorization'] = `Bearer ${match[1]}`;
+    }
 
     const body = ['GET', 'HEAD'].includes(request.method)
       ? undefined

@@ -9,21 +9,19 @@ interface AuthUser {
 }
 
 interface AuthState {
-  token: string | null;
   user: AuthUser | null;
   isAuthenticated: boolean;
-  setToken: (token: string, user: AuthUser) => void;
-  logout: () => void;
+  setUser: (user: AuthUser) => void;
+  clearAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      token: null,
       user: null,
       isAuthenticated: false,
-      setToken: (token, user) => set({ token, user, isAuthenticated: true }),
-      logout: () => set({ token: null, user: null, isAuthenticated: false }),
+      setUser: (user) => set({ user, isAuthenticated: true }),
+      clearAuth: () => set({ user: null, isAuthenticated: false }),
     }),
     { name: 'shexmap-auth' }
   )

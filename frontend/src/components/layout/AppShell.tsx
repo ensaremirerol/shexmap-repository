@@ -4,27 +4,22 @@ import { useAuthStore } from '../../store/authStore.js';
 import { fetchAuthStatus } from '../../api/auth.js';
 
 export default function AppShell({ children }: { children: ReactNode }) {
-  const { token, setToken, logout } = useAuthStore();
+  const { setUser, clearAuth } = useAuthStore();
 
   useEffect(() => {
-    if (!token) return;
-
     fetchAuthStatus()
       .then((status) => {
         if (status.authenticated && status.user) {
-          setToken(token, {
+          setUser({
             sub: status.user.sub,
             name: status.user.name ?? status.user.sub,
             email: status.user.email,
           });
         } else {
-          logout();
+          clearAuth();
         }
       })
-      .catch(() => {
-        logout();
-      });
-    // Run only once on initial mount to rehydrate persisted token
+      .catch(() => clearAuth());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -39,9 +34,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         Conceived by <a href="https://github.com/micheldumontier/" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">Michel Dumontier</a>.
         Built with <a href="https://code.claude.com/docs/en/overview" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">Claude Code</a>.
         Powered by{' '}
-        <a href="http://shex.io" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">
-          ShEx
-        </a>{' '}
+        <a href="http://shex.io" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">ShEx</a>{' '}
         &amp; <a href="https://github.com/ad-freiburg/qlever" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">QLever</a>
         <br/>
         Source code at <a href="https://github.com/micheldumontier/shexmap-repository" className="text-violet-600 hover:underline" target="_blank" rel="noreferrer">GitHub</a>.

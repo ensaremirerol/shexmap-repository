@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore.js';
+import { callLogout } from '../../api/auth.js';
 
 const NAV_LINKS = [
   { to: '/browse', label: 'Browse' },
@@ -12,7 +13,8 @@ const EXTERNAL_LINKS = [
 ];
 
 export default function NavBar() {
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user, clearAuth } = useAuthStore();
+  const handleLogout = () => { callLogout().finally(() => clearAuth()); };
   const authEnabled = import.meta.env.VITE_AUTH_ENABLED === 'true';
 
   return (
@@ -76,7 +78,7 @@ export default function NavBar() {
                   {user?.name ?? 'Dashboard'}
                 </Link>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
                 >
                   Sign out

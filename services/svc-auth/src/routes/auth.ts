@@ -45,8 +45,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       const user = await upsertUser(sparqlClient, prefixes, externalId, name, email);
       const token = fastify.signToken({ sub: user.id, role: 'user' });
 
-      // Redirect to SPA with token in URL fragment — never logged by servers
-      return reply.redirect(`${config.callbackBaseUrl}/#token=${token}`);
+      reply.setCookie('auth_token', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: config.jwt.expiry,
+      });
+      return reply.redirect(`${config.callbackBaseUrl}/auth/callback`);
     } catch (err: any) {
       return reply.internalServerError(`OAuth callback failed: ${err.message}`);
     }
@@ -54,7 +59,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post('/logout', {
     preHandler: [fastify.requireAuth],
-  }, async () => {
+  }, async (_request, reply) => {
+    reply.clearCookie('auth_token', { path: '/' });
     return { message: 'Logged out' };
   });
 };

@@ -11,11 +11,11 @@ export interface AuthStatusResponse {
   } | null;
 }
 
-export async function fetchAuthStatus(tokenOverride?: string): Promise<AuthStatusResponse> {
-  const headers: Record<string, string> = {};
-  if (tokenOverride) {
-    headers['Authorization'] = `Bearer ${tokenOverride}`;
-  }
-  const res = await apiClient.get<AuthStatusResponse>('/auth/status', { headers });
+export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
+  const res = await apiClient.get<AuthStatusResponse>('/auth/status');
   return res.data;
+}
+
+export async function callLogout(): Promise<void> {
+  await apiClient.post('/auth/logout');
 }

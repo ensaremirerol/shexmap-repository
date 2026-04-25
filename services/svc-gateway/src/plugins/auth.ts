@@ -23,14 +23,21 @@ export default fp(async (fastify) => {
   });
 
   fastify.decorate('extractAuth', (request: FastifyRequest): AuthContext => {
+    // Prefer Authorization header; fall back to auth_token cookie
     const authHeader = request.headers['authorization'];
-    if (!authHeader?.startsWith('Bearer ')) {
+    let rawToken: string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+      rawToken = authHeader.slice(7);
+    } else {
+      const cookieHeader = (request.headers['cookie'] as string) ?? '';
+      const match = cookieHeader.match(/(?:^|;\s*)auth_token=([^;]+)/);
+      rawToken = match?.[1];
+    }
+    if (!rawToken) {
       return { userId: '', role: 'anonymous', authEnabled: config.authEnabled };
     }
     try {
-      const payload = fastify.jwt.verify<{ sub: string; role: 'user' | 'admin' }>(
-        authHeader.slice(7),
-      );
+      const payload = fastify.jwt.verify<{ sub: string; role: 'user' | 'admin' }>(rawToken);
       return {
         userId: payload.sub,
         role: payload.role ?? 'user',
