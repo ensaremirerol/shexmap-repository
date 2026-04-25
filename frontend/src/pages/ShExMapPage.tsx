@@ -209,22 +209,29 @@ export default function ShExMapPage() {
     </div>
   );
 
-  const isOwner = !!user && user.sub === map.authorId;
+  const unclaimed = !map.authorId || map.authorId === 'anonymous';
+  const isOwner = !!user && (unclaimed || user.sub === map.authorId);
   const mapSnapshot = map;
+  const [forkError, setForkError] = useState<string | null>(null);
 
   async function handleFork() {
-    const forked = await forkMap.mutateAsync({
-      title:            `Fork of ${mapSnapshot.title}`,
-      description:      mapSnapshot.description,
-      content:          shexContent || mapSnapshot.content,
-      sampleTurtleData: mapSnapshot.sampleTurtleData,
-      sourceUrl:        mapSnapshot.sourceUrl,
-      schemaUrl:        mapSnapshot.schemaUrl,
-      tags:             mapSnapshot.tags,
-      version:          mapSnapshot.version,
-      fileFormat:       mapSnapshot.fileFormat,
-    });
-    navigate(`/maps/${forked.id}`);
+    setForkError(null);
+    try {
+      const forked = await forkMap.mutateAsync({
+        title:            `Fork of ${mapSnapshot.title}`,
+        description:      mapSnapshot.description,
+        content:          shexContent || mapSnapshot.content,
+        sampleTurtleData: mapSnapshot.sampleTurtleData,
+        sourceUrl:        mapSnapshot.sourceUrl,
+        schemaUrl:        mapSnapshot.schemaUrl,
+        tags:             mapSnapshot.tags,
+        version:          mapSnapshot.version,
+        fileFormat:       mapSnapshot.fileFormat,
+      });
+      navigate(`/maps/${forked.id}`);
+    } catch (e: any) {
+      setForkError(e?.response?.data?.message ?? e?.message ?? 'Fork failed');
+    }
   }
 
   const serverVersions = (versionsQuery.data ?? []).map((v: ShExMapVersion) => ({
@@ -342,6 +349,9 @@ export default function ShExMapPage() {
               onSave={(d) => updateMeta.mutate(d)}
               isSaving={updateMeta.isPending}
             />
+          )}
+          {forkError && (
+            <p className="text-xs text-red-400 mt-1">{forkError}</p>
           )}
         </div>
 

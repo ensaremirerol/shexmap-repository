@@ -190,7 +190,8 @@ const updateShexMapHandler: grpc.handleUnaryCall<any, any> = async (call, callba
 
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
-      if (existing.authorId !== ctx.userId && ctx.role !== 'admin') {
+      const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
+      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
         return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
       }
     }
@@ -221,7 +222,8 @@ const deleteShexMapHandler: grpc.handleUnaryCall<any, any> = async (call, callba
 
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
-      if (existing.authorId !== ctx.userId && ctx.role !== 'admin') {
+      const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
+      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
         return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
       }
     }
@@ -272,7 +274,8 @@ const saveVersionHandler: grpc.handleUnaryCall<any, any> = async (call, callback
 
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
-      if (existing.authorId !== ctx.userId && ctx.role !== 'admin') {
+      const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
+      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
         return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
       }
     }

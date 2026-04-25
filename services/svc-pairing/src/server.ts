@@ -207,7 +207,8 @@ const updatePairingHandler: grpc.handleUnaryCall<any, any> = async (call, callba
 
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
-      if (existing.authorId !== ctx.userId && ctx.role !== 'admin') {
+      const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
+      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
         return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
       }
     }
@@ -239,7 +240,8 @@ const deletePairingHandler: grpc.handleUnaryCall<any, any> = async (call, callba
 
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
-      if (existing.authorId !== ctx.userId && ctx.role !== 'admin') {
+      const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
+      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
         return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
       }
     }
@@ -282,7 +284,8 @@ const savePairingVersionHandler: grpc.handleUnaryCall<any, any> = async (call, c
 
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
-      if (existing.authorId !== ctx.userId && ctx.role !== 'admin') {
+      const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
+      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
         return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
       }
     }

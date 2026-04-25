@@ -1037,8 +1037,10 @@ export default function CreatePairingPage() {
   const createPairing = useCreateShExMapPairing();
   const updatePairing = useUpdateShExMapPairing(editPairingId);
 
-  // Ownership: creating = always owner; editing = compare user.sub to authorId
-  const isOwner = !editPairingId || (!!user && user.sub === (pairingQuery.data?.authorId ?? ''));
+  // Ownership: creating = always owner; unclaimed (anonymous) = any auth'd user; else compare sub
+  const pairingAuthorId = pairingQuery.data?.authorId ?? '';
+  const pairingUnclaimed = editPairingId && (!pairingAuthorId || pairingAuthorId === 'anonymous');
+  const isOwner = !editPairingId || (!!user && (pairingUnclaimed || user.sub === pairingAuthorId));
 
   // Source side
   const [srcMapId, setSrcMapId] = useState('');
@@ -1211,19 +1213,25 @@ export default function CreatePairingPage() {
   const isSavingPairing = createPairing.isPending || updatePairing.isPending || savePairingVersion.isPending;
   const saveError = createPairing.error || updatePairing.error;
 
+  const [forkPairingError, setForkPairingError] = useState('');
   async function handleForkPairing() {
-    const forked = await createPairing.mutateAsync({
-      title:       `Fork of ${pairingTitle}`,
-      description: pairingDesc || undefined,
-      sourceMapId: srcMapId,
-      targetMapId: tgtMapId,
-      sourceFocusIri: srcFocus || undefined,
-      targetFocusIri: tgtFocus || undefined,
-      tags:        pairingTags.split(',').map((t) => t.trim()).filter(Boolean),
-      version:     pairingVersion,
-      license:     pairingLicense || undefined,
-    });
-    navigate(`/pairings/create?id=${forked.id}`);
+    setForkPairingError('');
+    try {
+      const forked = await createPairing.mutateAsync({
+        title:          `Fork of ${pairingTitle}`,
+        description:    pairingDesc || undefined,
+        sourceMapId:    srcMapId,
+        targetMapId:    tgtMapId,
+        sourceFocusIri: srcFocus || undefined,
+        targetFocusIri: tgtFocus || undefined,
+        tags:           pairingTags.split(',').map((t) => t.trim()).filter(Boolean),
+        version:        pairingVersion,
+        license:        pairingLicense || undefined,
+      });
+      navigate(`/pairings/create?id=${forked.id}`);
+    } catch (e: any) {
+      setForkPairingError(e?.response?.data?.message ?? e?.message ?? 'Fork failed');
+    }
   }
 
   return (
@@ -1461,20 +1469,25 @@ export default function CreatePairingPage() {
               )}
             </>
           ) : user ? (
-            <button
-              onClick={handleForkPairing}
-              disabled={createPairing.isPending || !srcMapId || !tgtMapId}
-              className="flex items-center gap-1.5 font-medium px-6 py-2.5 text-sm rounded-lg bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40 transition-colors"
-            >
-              {createPairing.isPending ? 'Forking…' : (
-                <>
-                  <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
-                    <path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/>
-                  </svg>
-                  Fork Pairing
-                </>
+            <>
+              <button
+                onClick={handleForkPairing}
+                disabled={createPairing.isPending || !srcMapId || !tgtMapId}
+                className="flex items-center gap-1.5 font-medium px-6 py-2.5 text-sm rounded-lg bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40 transition-colors"
+              >
+                {createPairing.isPending ? 'Forking…' : (
+                  <>
+                    <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+                      <path d="M5 5.372v.878c0 .414.336.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/>
+                    </svg>
+                    Fork Pairing
+                  </>
+                )}
+              </button>
+              {forkPairingError && (
+                <span className="text-sm text-red-600">{forkPairingError}</span>
               )}
-            </button>
+            </>
           ) : null}
         </div>
 
