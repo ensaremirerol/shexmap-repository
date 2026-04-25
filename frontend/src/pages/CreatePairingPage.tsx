@@ -15,6 +15,7 @@ import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client.js';
+import { useAuthStore } from '../store/authStore.js';
 import {
   useCreateShExMap,
   useCreateShExMapPairing,
@@ -1027,6 +1028,7 @@ function ShExMapSidePanel({
 export default function CreatePairingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuthStore();
 
   // Load existing pairing if ?id= is present
   const editPairingId = searchParams.get('id') ?? '';
@@ -1034,6 +1036,9 @@ export default function CreatePairingPage() {
   const pairingsListQuery = useShExMapPairings({ limit: 50 });
   const createPairing = useCreateShExMapPairing();
   const updatePairing = useUpdateShExMapPairing(editPairingId);
+
+  // Ownership: creating = always owner; editing = compare user.sub to authorId
+  const isOwner = !editPairingId || (!!user && user.sub === (pairingQuery.data?.authorId ?? ''));
 
   // Source side
   const [srcMapId, setSrcMapId] = useState('');
@@ -1205,6 +1210,21 @@ export default function CreatePairingPage() {
 
   const isSavingPairing = createPairing.isPending || updatePairing.isPending || savePairingVersion.isPending;
   const saveError = createPairing.error || updatePairing.error;
+
+  async function handleForkPairing() {
+    const forked = await createPairing.mutateAsync({
+      title:       `Fork of ${pairingTitle}`,
+      description: pairingDesc || undefined,
+      sourceMapId: srcMapId,
+      targetMapId: tgtMapId,
+      sourceFocusIri: srcFocus || undefined,
+      targetFocusIri: tgtFocus || undefined,
+      tags:        pairingTags.split(',').map((t) => t.trim()).filter(Boolean),
+      version:     pairingVersion,
+      license:     pairingLicense || undefined,
+    });
+    navigate(`/pairings/create?id=${forked.id}`);
+  }
 
   return (
     <div className="space-y-6">
@@ -1400,43 +1420,62 @@ export default function CreatePairingPage() {
         )}
 
         <div className="flex items-center gap-3 flex-wrap">
-          {editPairingId && (
-            <input
-              type="text"
-              value={commitMsg}
-              onChange={(e) => setCommitMsg(e.target.value)}
-              placeholder="Change note (optional)"
-              className="text-sm border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 w-52 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300"
-            />
-          )}
-          <button
-            onClick={handleSavePairing}
-            disabled={isSavingPairing || !pairingTitle || !srcMapId || !tgtMapId}
-            className={`font-medium px-6 py-2.5 text-sm rounded-lg transition-colors ${saveFlash ? 'bg-green-600 text-white' :
-              'bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40'
-              }`}
-          >
-            {isSavingPairing ? 'Saving…' : saveFlash ? 'Saved!' : editPairingId ? 'Update Pairing' : 'Save Pairing'}
-          </button>
-          <button
-            onClick={() => downloadPairingJson(editPairingId || savedPairingId)}
-            disabled={!pairingTitle || !srcMapId || !tgtMapId || (!editPairingId && !savedPairingId)}
-            title="Download pairing as JSON"
-            className="font-medium px-4 py-2.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-          >
-            ↓ Download
-          </button>
-          {(pairingVersionsQuery.data?.length ?? 0) > 0 && (
+          {isOwner ? (
+            <>
+              {editPairingId && (
+                <input
+                  type="text"
+                  value={commitMsg}
+                  onChange={(e) => setCommitMsg(e.target.value)}
+                  placeholder="Change note (optional)"
+                  className="text-sm border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 w-52 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300"
+                />
+              )}
+              <button
+                onClick={handleSavePairing}
+                disabled={isSavingPairing || !pairingTitle || !srcMapId || !tgtMapId}
+                className={`font-medium px-6 py-2.5 text-sm rounded-lg transition-colors ${saveFlash ? 'bg-green-600 text-white' :
+                  'bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40'
+                  }`}
+              >
+                {isSavingPairing ? 'Saving…' : saveFlash ? 'Saved!' : editPairingId ? 'Update Pairing' : 'Save Pairing'}
+              </button>
+              <button
+                onClick={() => downloadPairingJson(editPairingId || savedPairingId)}
+                disabled={!pairingTitle || !srcMapId || !tgtMapId || (!editPairingId && !savedPairingId)}
+                title="Download pairing as JSON"
+                className="font-medium px-4 py-2.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+              >
+                ↓ Download
+              </button>
+              {(pairingVersionsQuery.data?.length ?? 0) > 0 && (
+                <button
+                  onClick={() => setShowPairingHistory((s) => !s)}
+                  className="text-sm px-3 py-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                >
+                  History ({pairingVersionsQuery.data!.length})
+                </button>
+              )}
+              {(!pairingTitle || !srcMapId || !tgtMapId) && (
+                <span className="text-xs text-slate-400 italic">Title and both maps are required.</span>
+              )}
+            </>
+          ) : user ? (
             <button
-              onClick={() => setShowPairingHistory((s) => !s)}
-              className="text-sm px-3 py-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+              onClick={handleForkPairing}
+              disabled={createPairing.isPending || !srcMapId || !tgtMapId}
+              className="flex items-center gap-1.5 font-medium px-6 py-2.5 text-sm rounded-lg bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40 transition-colors"
             >
-              History ({pairingVersionsQuery.data!.length})
+              {createPairing.isPending ? 'Forking…' : (
+                <>
+                  <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current" aria-hidden="true">
+                    <path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/>
+                  </svg>
+                  Fork Pairing
+                </>
+              )}
             </button>
-          )}
-          {(!pairingTitle || !srcMapId || !tgtMapId) && (
-            <span className="text-xs text-slate-400 italic">Title and both maps are required.</span>
-          )}
+          ) : null}
         </div>
 
         {/* Pairing version history panel */}
