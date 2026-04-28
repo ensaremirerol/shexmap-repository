@@ -9,6 +9,8 @@ export function buildPrefixes(base: string = DEFAULT_BASE) {
     shexruser:    `${base}resource/user/`,
     shexrpair:    `${base}resource/pairing/`,
     shexrversion: `${base}resource/version/`,
+    shexrauth:    `${base}resource/auth/`,
+    acl:    'http://www.w3.org/ns/auth/acl#',
     shex:   'http://www.w3.org/ns/shex#',
     dcat:   'http://www.w3.org/ns/dcat#',
     dct:    'http://purl.org/dc/terms/',

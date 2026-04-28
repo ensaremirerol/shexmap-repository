@@ -61,7 +61,10 @@ export async function sparqlAsk(
   const res = await client.query.ask(fullQuery, {
     headers: { Accept: 'application/sparql-results+json' },
   });
-  if (!res.ok) throw new Error(`SPARQL ASK failed (${res.status})`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`SPARQL ASK failed (${res.status}): ${body}`);
+  }
   const data = await res.json() as SparqlAskResult;
   return data.boolean;
 }
