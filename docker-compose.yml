@@ -136,6 +136,26 @@ services:
       - shexmap-svc-net
     restart: unless-stopped
 
+  # ─── ACL — WAC authorizations (gRPC :50000) ───────────────────────────────────
+  svc-acl:
+    build:
+      context: ./services
+      dockerfile: svc-acl/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "50000"
+      LOG_LEVEL: info
+      QLEVER_SPARQL_URL: http://qlever:7001/sparql
+      QLEVER_UPDATE_URL: http://qlever:7001/update
+      QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
+      BASE_NAMESPACE: ${BASE_NAMESPACE:-https://w3id.org/shexmap/}
+    depends_on:
+      qlever-init:
+        condition: service_completed_successfully
+    networks:
+      - shexmap-svc-net
+    restart: unless-stopped
+
   # ─── Authentication + User Management (HTTP :50000) ───────────────────────────
   svc-auth:
     build:
