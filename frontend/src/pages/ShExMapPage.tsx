@@ -21,6 +21,7 @@ import {
   type ValidationMode,
 } from '../components/validation/TurtleValidationPanel.js';
 import ManageAccessPanel from '../components/acl/ManageAccessPanel.js';
+import { useShExMapAcl } from '../api/acl.js';
 
 // ─── Map metadata form ────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ export default function ShExMapPage() {
   const saveVersion     = useSaveShExMapVersion(id ?? '');
   const updateMeta      = useUpdateShExMap(id ?? '');
   const forkMap         = useCreateShExMap();
+  const mapAcl          = useShExMapAcl(id ?? '');
 
   const [shexContent, setShexContent]       = useState('');
   const [loadedVersionNum, setLoadedVersionNum] = useState<number | null>(null);
@@ -213,6 +215,8 @@ export default function ShExMapPage() {
 
   const unclaimed = !map.authorId || map.authorId === 'anonymous';
   const isOwner = !!user && (unclaimed || user.sub === map.authorId);
+  const hasAclWrite = !isOwner && !!user && (mapAcl.data?.some(e => e.agentUserId === user.sub && e.mode === 'Write') ?? false);
+  const canEdit = isOwner || hasAclWrite;
   const mapSnapshot = map;
 
   async function handleFork() {
@@ -320,7 +324,7 @@ export default function ShExMapPage() {
             <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-mono ml-1">
               {map.fileFormat}
             </span>
-            {isOwner ? (
+            {canEdit ? (
               <button
                 onClick={() => setShowMeta((s) => !s)}
                 className="ml-auto text-xs text-slate-400 hover:text-slate-200 transition-colors"
@@ -344,20 +348,18 @@ export default function ShExMapPage() {
               </button>
             ) : null}
           </div>
-          {isOwner && showMeta && (
+          {canEdit && showMeta && (
             <MapMetaForm
               map={map}
               onSave={(d) => updateMeta.mutate(d)}
               isSaving={updateMeta.isPending}
             />
           )}
-          {isOwner && showMeta && (
-            <ManageAccessPanel
-              resourceId={map.id}
-              resourceKind="shexmap"
-              isOwner={isOwner}
-            />
-          )}
+          <ManageAccessPanel
+            resourceId={map.id}
+            resourceKind="shexmap"
+            isOwner={isOwner}
+          />
           {forkError && (
             <p className="text-xs text-red-400 mt-1">{forkError}</p>
           )}
@@ -370,9 +372,9 @@ export default function ShExMapPage() {
           fileName={map.fileName}
           fileFormat={map.fileFormat}
           height={400}
-          readOnly={!isOwner}
+          readOnly={!canEdit}
           serverVersions={serverVersions}
-          onSaveServerVersion={isOwner ? (c, msg) => saveVersion.mutate({ content: c, commitMessage: msg }) : undefined}
+          onSaveServerVersion={canEdit ? (c, msg) => saveVersion.mutate({ content: c, commitMessage: msg }) : undefined}
           isSavingServerVersion={saveVersion.isPending}
           onLoadServerVersion={handleLoadVersion}
           onChange={setShexContent}

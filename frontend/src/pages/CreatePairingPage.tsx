@@ -38,6 +38,7 @@ import { registerShexLanguage } from '../utils/shexLanguage.js';
 import { registerTurtleLanguage, TURTLE_LANGUAGE_ID } from '../utils/turtleLanguage.js';
 import { buildVarColorMap, extractVars } from '../utils/varColors.js';
 import ManageAccessPanel from '../components/acl/ManageAccessPanel.js';
+import { usePairingAcl } from '../api/acl.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1037,11 +1038,16 @@ export default function CreatePairingPage() {
   const pairingsListQuery = useShExMapPairings({ limit: 50 });
   const createPairing = useCreateShExMapPairing();
   const updatePairing = useUpdateShExMapPairing(editPairingId);
+  const pairingAcl = usePairingAcl(editPairingId);
 
-  // Ownership: creating = always owner; unclaimed (anonymous) = any auth'd user; else compare sub
+  // Ownership: creating = always owner; unclaimed (anonymous) = any auth'd user; else compare sub.
+  // Gate on isSuccess so the empty-string default during loading doesn't make every user appear as owner.
   const pairingAuthorId = pairingQuery.data?.authorId ?? '';
-  const pairingUnclaimed = editPairingId && (!pairingAuthorId || pairingAuthorId === 'anonymous');
-  const isOwner = !editPairingId || (!!user && (pairingUnclaimed || user.sub === pairingAuthorId));
+  const pairingUnclaimed = editPairingId ? (pairingQuery.isSuccess && (!pairingAuthorId || pairingAuthorId === 'anonymous')) : false;
+  const isOwner = !editPairingId || (pairingQuery.isSuccess && !!user && (pairingUnclaimed || user.sub === pairingAuthorId));
+  // ACL write grant: non-owners who have been explicitly granted write access may also edit.
+  const hasAclWrite = !isOwner && !!user && (pairingAcl.data?.some(e => e.agentUserId === user.sub && e.mode === 'Write') ?? false);
+  const canEdit = isOwner || hasAclWrite;
 
   // Source side
   const [srcMapId, setSrcMapId] = useState('');
@@ -1429,7 +1435,7 @@ export default function CreatePairingPage() {
         )}
 
         <div className="flex items-center gap-3 flex-wrap">
-          {isOwner ? (
+          {canEdit ? (
             <>
               {editPairingId && (
                 <input
