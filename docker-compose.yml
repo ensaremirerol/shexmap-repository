@@ -35,8 +35,8 @@ services:
       SVC_AUTH_URL: http://svc-auth:50000
       SVC_SPARQL_PROXY_URL: http://svc-sparql-proxy:50000
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
     networks:
       - shexmap-svc-net
     restart: unless-stopped
@@ -70,8 +70,8 @@ services:
       SVC_VALIDATE_URL: svc-validate:50000
       SVC_ACL_URL: svc-acl:50000
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
       svc-acl:
         condition: service_started
     networks:
@@ -94,8 +94,8 @@ services:
       SVC_SHEXMAP_URL: svc-shexmap:50000
       SVC_ACL_URL: svc-acl:50000
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
       svc-acl:
         condition: service_started
     networks:
@@ -116,8 +116,8 @@ services:
       QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
       BASE_NAMESPACE: ${BASE_NAMESPACE:-https://w3id.org/shexmap/}
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
     networks:
       - shexmap-svc-net
     restart: unless-stopped
@@ -136,8 +136,8 @@ services:
       QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
       BASE_NAMESPACE: ${BASE_NAMESPACE:-https://w3id.org/shexmap/}
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
     networks:
       - shexmap-svc-net
     restart: unless-stopped
@@ -156,8 +156,8 @@ services:
       QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
       BASE_NAMESPACE: ${BASE_NAMESPACE:-https://w3id.org/shexmap/}
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
     networks:
       - shexmap-svc-net
     restart: unless-stopped
@@ -184,8 +184,8 @@ services:
     volumes:
       - svc-auth-data:/data
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
     networks:
       - shexmap-svc-net
     restart: unless-stopped
@@ -204,28 +204,11 @@ services:
       QLEVER_UPDATE_URL: http://qlever:7001/update
       QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
     depends_on:
-      qlever-init:
-        condition: service_completed_successfully
+      qlever:
+        condition: service_started
     networks:
       - shexmap-svc-net
     restart: unless-stopped
-
-  # ─── QLever index initialiser (runs once, exits) ──────────────────────────────
-  qlever-init:
-    image: adfreiburg/qlever:latest
-    user: "0"
-    entrypoint: ["/bin/sh", "/scripts/init-index.sh"]
-    environment:
-      RESTORE_FROM: ${RESTORE_FROM:-}
-      BASE_NAMESPACE: ${BASE_NAMESPACE:-https://w3id.org/shexmap/}
-    volumes:
-      - qlever-svc-data:/data
-      - ./sparql:/sparql-data:ro
-      - ./docker/qlever:/scripts:ro
-      - ./sparql/backup:/backups:ro
-    working_dir: /data
-    networks:
-      - shexmap-svc-net
 
   # ─── QLever SPARQL server ──────────────────────────────────────────────────────
   qlever:
@@ -238,9 +221,6 @@ services:
     volumes:
       - qlever-svc-data:/data
     working_dir: /data
-    depends_on:
-      qlever-init:
-        condition: service_completed_successfully
     networks:
       - shexmap-svc-net
     restart: unless-stopped
