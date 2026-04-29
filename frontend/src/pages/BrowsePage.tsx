@@ -36,7 +36,7 @@ export default function BrowsePage() {
   const schemaToPairings = useMemo(() => {
     const idx = new Map<string, ShExMapPairing[]>();
     for (const pairing of pairingsQuery.data?.items ?? []) {
-      for (const schemaUrl of [pairing.sourceMap.schemaUrl, pairing.targetMap.schemaUrl]) {
+      for (const schemaUrl of [pairing.sourceMap?.schemaUrl, pairing.targetMap?.schemaUrl]) {
         if (!schemaUrl) continue;
         const list = idx.get(schemaUrl) ?? [];
         if (!list.find((p) => p.id === pairing.id)) list.push(pairing);

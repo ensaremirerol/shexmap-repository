@@ -123,6 +123,7 @@ export default function ShExMapPage() {
   const [validating, setValidating]         = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validationError, setValidationError]   = useState('');
+  const [forkError, setForkError] = useState<string | null>(null);
 
   const validationMode: ValidationMode =
     (shexContent && turtle && focusNode) ? 'full' :
@@ -212,7 +213,6 @@ export default function ShExMapPage() {
   const unclaimed = !map.authorId || map.authorId === 'anonymous';
   const isOwner = !!user && (unclaimed || user.sub === map.authorId);
   const mapSnapshot = map;
-  const [forkError, setForkError] = useState<string | null>(null);
 
   async function handleFork() {
     setForkError(null);
