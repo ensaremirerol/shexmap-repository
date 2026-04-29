@@ -10,4 +10,5 @@ export const config = {
   qleverUpdateUrl:  opt('QLEVER_UPDATE_URL', 'http://qlever:7001/api/'),
   qleverAccessToken: opt('QLEVER_ACCESS_TOKEN', ''),
   svcValidateUrl:   opt('SVC_VALIDATE_URL', 'svc-validate:50051'),
+  svcAclUrl:        opt('SVC_ACL_URL', 'svc-acl:50000'),
 } as const;

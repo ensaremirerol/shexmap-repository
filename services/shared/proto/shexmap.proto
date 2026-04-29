@@ -12,6 +12,21 @@ service ShexMapService {
   rpc GetVersion         (GetVersionRequest)       returns (VersionResponse);
   rpc GetVersionContent  (GetVersionRequest)       returns (VersionContentResponse);
   rpc SaveVersion        (SaveVersionRequest)      returns (VersionResponse);
+
+  rpc GrantWriteAccess   (AccessRequest)           returns (AccessGrantResponse);
+  rpc RevokeWriteAccess  (AccessRequest)           returns (AccessRevokeResponse);
+  rpc ListWriteAccess    (ListAccessRequest)       returns (ListAccessResponse);
+}
+
+message AccessRequest        { string map_id = 1; string agent_user_id = 2; }
+message AccessGrantResponse  { string authorization_iri = 1; }
+message AccessRevokeResponse { int32 deleted_count = 1; }
+message ListAccessRequest    { string map_id = 1; }
+message ListAccessResponse   { repeated AccessEntry items = 1; }
+message AccessEntry {
+  string authorization_iri = 1;
+  string agent_user_id     = 2;
+  string mode              = 3;
 }
 
 message ListShexMapsRequest {

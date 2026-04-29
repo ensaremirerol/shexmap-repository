@@ -170,6 +170,60 @@ const shexmapsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // ── ACL: Grant / Revoke / List write access ────────────────────────────────
+
+  fastify.post('/api/v1/shexmaps/:id/acl/grant', async (request, reply) => {
+    const ctx = fastify.extractAuth(request);
+    if (requiresAuth(request.method) && !ctx.userId) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown> ?? {};
+    const agentUserId = (body['agentUserId'] as string | undefined) ?? '';
+    if (!agentUserId) return reply.code(400).send({ error: 'agentUserId is required' });
+    try {
+      const result = await grpcCall(shexmapClient, 'GrantWriteAccess', {
+        map_id:        id,
+        agent_user_id: agentUserId,
+      }, buildAuthMeta(ctx));
+      return reply.send(snakeToCamel(result));
+    } catch (err) {
+      return grpcErrorToHttp(reply, err);
+    }
+  });
+
+  fastify.post('/api/v1/shexmaps/:id/acl/revoke', async (request, reply) => {
+    const ctx = fastify.extractAuth(request);
+    if (requiresAuth(request.method) && !ctx.userId) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown> ?? {};
+    const agentUserId = (body['agentUserId'] as string | undefined) ?? '';
+    if (!agentUserId) return reply.code(400).send({ error: 'agentUserId is required' });
+    try {
+      const result = await grpcCall(shexmapClient, 'RevokeWriteAccess', {
+        map_id:        id,
+        agent_user_id: agentUserId,
+      }, buildAuthMeta(ctx));
+      return reply.send(snakeToCamel(result));
+    } catch (err) {
+      return grpcErrorToHttp(reply, err);
+    }
+  });
+
+  fastify.get('/api/v1/shexmaps/:id/acl', async (request, reply) => {
+    const ctx = fastify.extractAuth(request);
+    const { id } = request.params as { id: string };
+    try {
+      const result = await grpcCall(shexmapClient, 'ListWriteAccess', { map_id: id }, buildAuthMeta(ctx));
+      const res = result as { items: unknown[] };
+      return reply.send(snakeToCamel(res.items ?? []));
+    } catch (err) {
+      return grpcErrorToHttp(reply, err);
+    }
+  });
+
 };
 
 export default shexmapsRoutes;

@@ -21,7 +21,31 @@ rpc ListVersions      (ListVersionsRequest)  returns (ListVersionsResponse)
 rpc GetVersion        (GetVersionRequest)    returns (VersionResponse)
 rpc GetVersionContent (GetVersionRequest)    returns (VersionContentResponse)
 rpc SaveVersion       (SaveVersionRequest)   returns (VersionResponse)
+rpc GrantWriteAccess  (AccessRequest)        returns (AccessGrantResponse)
+rpc RevokeWriteAccess (AccessRequest)        returns (AccessRevokeResponse)
+rpc ListWriteAccess   (ListAccessRequest)    returns (ListAccessResponse)
 ```
+
+## Manage Access RPCs
+
+`GrantWriteAccess`, `RevokeWriteAccess`, and `ListWriteAccess` expose the per-map ACL surface to the gateway. Internally they:
+
+1. Read `AuthContext` from gRPC metadata.
+2. `getShExMap(map_id)` — `NOT_FOUND` if absent.
+3. Owner check (owner / admin / unclaimed). `acl:Write` grants do **not** confer manage-access privileges. Returns `PERMISSION_DENIED` otherwise.
+4. Derive `resourceIri = ${prefixes.shexrmap}${id}` and `agentIri = ${prefixes.shexruser}${agent_user_id}`.
+5. Forward to svc-acl (`GrantMode` / `RevokeMode` / `ListAuthorizations`) with the caller's AuthContext attached as gRPC metadata.
+6. Translate svc-acl's wire shape into ShexMapService responses. For `ListWriteAccess`, the user UUID is extracted from the agent IRI by stripping `prefixes.shexruser`.
+
+The gateway exposes them at:
+
+```
+POST /api/v1/shexmaps/:id/acl/grant   { agentUserId }
+POST /api/v1/shexmaps/:id/acl/revoke  { agentUserId }
+GET  /api/v1/shexmaps/:id/acl
+```
+
+`POST` requires authentication; `GET` is public so collaborators can see who has access.
 
 ## AuthContext & AuthZ
 
@@ -31,9 +55,10 @@ Read from gRPC metadata (`x-auth-user-id`, `x-auth-role`, `x-auth-enabled`). Rul
 |-----------|------|
 | List / Get | Always allowed (public) |
 | Create | Requires `authEnabled=false` OR non-empty `userId` |
-| Update | Requires ownership: `map.authorId === ctx.userId` OR `role === 'admin'` OR map is unclaimed |
-| Delete | Requires ownership: `map.authorId === ctx.userId` OR `role === 'admin'` OR map is unclaimed |
-| SaveVersion | Requires ownership (same as Update) |
+| Update | Owner OR admin OR unclaimed OR svc-acl `acl:Write` grant for `(map, ctx.userId)` |
+| Delete | Owner OR admin OR unclaimed OR svc-acl `acl:Write` grant; on success, best-effort `PurgeResource` is fired and any failure is logged but does not roll back the delete |
+| SaveVersion | Same rule as Update (owner / admin / unclaimed / acl:Write grant) |
+| GrantWriteAccess / RevokeWriteAccess / ListWriteAccess | Owner OR admin OR unclaimed (List is also public). An `acl:Write` grant alone does **not** confer the right to manage access — only the owner can grant/revoke. |
 
 A map is **unclaimed** when its `authorId` is empty or equal to `'anonymous'` — i.e. created before auth was enabled. Any authenticated user may edit/delete/version an unclaimed map (they effectively claim it on first edit). The frontend mirrors this rule when deciding whether to render Edit-vs-Fork UI on `/maps/:id`.
 
