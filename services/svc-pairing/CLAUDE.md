@@ -1,7 +1,7 @@
 # svc-pairing — ShExMap Pairing CRUD + Versioning
 
 **Protocol:** gRPC (port 50000 — uniform internal port across all backend services)
-**Dependencies:** QLever (SPARQL), svc-shexmap (optional existence check via gRPC)
+**Dependencies:** QLever (SPARQL), svc-shexmap (optional existence check via gRPC), svc-acl (gRPC — write-access checks + manage-access RPCs)
 
 ## Responsibility
 
@@ -20,9 +20,33 @@ rpc DeletePairing       (DeletePairingRequest) returns (DeletePairingResponse)
 rpc ListPairingVersions (ListPVRequest)        returns (ListPVResponse)
 rpc GetPairingVersion   (GetPVRequest)         returns (PVResponse)
 rpc SavePairingVersion  (SavePVRequest)        returns (PVResponse)
+rpc GrantWriteAccess    (AccessRequest)        returns (AccessGrantResponse)
+rpc RevokeWriteAccess   (AccessRequest)        returns (AccessRevokeResponse)
+rpc ListWriteAccess     (ListAccessRequest)    returns (ListAccessResponse)
 ```
 
 Note: `pairing.proto` imports `shexmap.proto` for the embedded `ShexMap` message type.
+
+## Manage Access RPCs
+
+`GrantWriteAccess`, `RevokeWriteAccess`, and `ListWriteAccess` expose the per-pairing ACL surface to the gateway. Internally they:
+
+1. Read `AuthContext` from gRPC metadata.
+2. `getShExMapPairing(pairing_id)` — `NOT_FOUND` if absent.
+3. Owner check (owner / admin / unclaimed). `acl:Write` grants do **not** confer manage-access privileges. Returns `PERMISSION_DENIED` otherwise.
+4. Derive `resourceIri = ${prefixes.shexrpair}${id}` and `agentIri = ${prefixes.shexruser}${agent_user_id}`.
+5. Forward to svc-acl (`GrantMode` / `RevokeMode` / `ListAuthorizations`) with the caller's AuthContext attached as gRPC metadata.
+6. Translate svc-acl's wire shape into PairingService responses. For `ListWriteAccess`, the user UUID is extracted from the agent IRI by stripping `prefixes.shexruser`.
+
+The gateway exposes them at:
+
+```
+POST /api/v1/pairings/:id/acl/grant   { agentUserId }
+POST /api/v1/pairings/:id/acl/revoke  { agentUserId }
+GET  /api/v1/pairings/:id/acl
+```
+
+`POST` requires authentication; `GET` is public so collaborators can see who has access.
 
 ## AuthContext & AuthZ
 
@@ -32,7 +56,12 @@ Same pattern as svc-shexmap:
 |-----------|------|
 | List / Get | Public |
 | Create | Requires authenticated user when `authEnabled=true` |
-| Update / Delete / SaveVersion | Owner or admin — **OR** any authenticated user when the existing pairing is "unclaimed" (`authorId` empty or `'anonymous'`). This handles legacy data created before auth was enabled. |
+| Update | Owner OR admin OR unclaimed OR svc-acl `acl:Write` grant for `(pairing, ctx.userId)` |
+| Delete | Owner OR admin OR unclaimed OR svc-acl `acl:Write` grant; on success, best-effort `PurgeResource` is fired and any failure is logged but does not roll back the delete |
+| SaveVersion | Same rule as Update (owner / admin / unclaimed / acl:Write grant) |
+| GrantWriteAccess / RevokeWriteAccess / ListWriteAccess | Owner OR admin OR unclaimed (List is also public). An `acl:Write` grant alone does **not** confer the right to manage access — only the owner can grant/revoke. |
+
+A pairing is **unclaimed** when its `authorId` is empty or equal to `'anonymous'` — i.e. created before auth was enabled.
 
 ## Directory layout to create
 
@@ -41,6 +70,7 @@ src/
   index.ts
   config.ts              PORT=50000, QLEVER_*, BASE_NAMESPACE,
                          SVC_SHEXMAP_URL (gRPC address for existence check),
+                         SVC_ACL_URL (gRPC address for ACL service),
                          STRICT_MAP_EXISTS_CHECK=true/false
   server.ts
   sparql.ts

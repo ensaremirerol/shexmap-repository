@@ -64,6 +64,105 @@ async function assertMapExists(mapId: string, label: string): Promise<void> {
   });
 }
 
+// ── gRPC ACL client ───────────────────────────────────────────────────────────
+
+let aclProto: any = null;
+let aclClient: any = null;
+
+export function getAclClient(): any {
+  if (aclClient) return aclClient;
+  if (!aclProto) {
+    const ACL_PROTO = join(__dirname, '..', 'proto', 'acl.proto');
+    const aDef = protoLoader.loadSync(ACL_PROTO, {
+      keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
+    });
+    aclProto = grpc.loadPackageDefinition(aDef) as any;
+  }
+  aclClient = new aclProto.shexmap.acl.AclService(
+    config.svcAclUrl,
+    grpc.credentials.createInsecure(),
+  );
+  return aclClient;
+}
+
+function buildAclMeta(ctx: AuthContext): grpc.Metadata {
+  const md = new grpc.Metadata();
+  md.set(AUTH_META.USER_ID,      ctx.userId);
+  md.set(AUTH_META.ROLE,         ctx.role);
+  md.set(AUTH_META.AUTH_ENABLED, String(ctx.authEnabled));
+  return md;
+}
+
+function aclHasMode(ctx: AuthContext, resourceIri: string, agentIri: string, mode: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    getAclClient().HasMode(
+      { resource_iri: resourceIri, agent_iri: agentIri, mode },
+      buildAclMeta(ctx),
+      (err: any, res: any) => {
+        if (err) return reject(err);
+        resolve(Boolean(res?.allowed));
+      },
+    );
+  });
+}
+
+function aclGrantMode(ctx: AuthContext, resourceIri: string, agentIri: string, mode: string): Promise<{ authorizationIri: string }> {
+  return new Promise((resolve, reject) => {
+    getAclClient().GrantMode(
+      { resource_iri: resourceIri, agent_iri: agentIri, mode },
+      buildAclMeta(ctx),
+      (err: any, res: any) => {
+        if (err) return reject(err);
+        resolve({ authorizationIri: res?.authorization_iri ?? '' });
+      },
+    );
+  });
+}
+
+function aclRevokeMode(ctx: AuthContext, resourceIri: string, agentIri: string, mode: string): Promise<{ deletedCount: number }> {
+  return new Promise((resolve, reject) => {
+    getAclClient().RevokeMode(
+      { resource_iri: resourceIri, agent_iri: agentIri, mode },
+      buildAclMeta(ctx),
+      (err: any, res: any) => {
+        if (err) return reject(err);
+        resolve({ deletedCount: Number(res?.deleted_count ?? 0) });
+      },
+    );
+  });
+}
+
+function aclListAuthorizations(ctx: AuthContext, resourceIri: string): Promise<Array<{ authorizationIri: string; agentIri: string; mode: string }>> {
+  return new Promise((resolve, reject) => {
+    getAclClient().ListAuthorizations(
+      { resource_iri: resourceIri },
+      buildAclMeta(ctx),
+      (err: any, res: any) => {
+        if (err) return reject(err);
+        const items = (res?.items ?? []) as any[];
+        resolve(items.map((it) => ({
+          authorizationIri: it.authorization_iri ?? '',
+          agentIri:         it.agent_iri ?? '',
+          mode:             it.mode ?? '',
+        })));
+      },
+    );
+  });
+}
+
+function aclPurgeResource(ctx: AuthContext, resourceIri: string): Promise<{ deletedCount: number }> {
+  return new Promise((resolve, reject) => {
+    getAclClient().PurgeResource(
+      { resource_iri: resourceIri },
+      buildAclMeta(ctx),
+      (err: any, res: any) => {
+        if (err) return reject(err);
+        resolve({ deletedCount: Number(res?.deleted_count ?? 0) });
+      },
+    );
+  });
+}
+
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
 function readAuthContext(metadata: grpc.Metadata): AuthContext {
@@ -208,8 +307,20 @@ const updatePairingHandler: grpc.handleUnaryCall<any, any> = async (call, callba
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
       const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
-      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
-        return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
+      const isOwner   = existing.authorId === ctx.userId;
+      const isAdmin   = ctx.role === 'admin';
+      let hasAclWrite = false;
+      if (!unclaimed && !isOwner && !isAdmin) {
+        const resourceIri = `${prefixes.shexrpair}${existing.id}`;
+        const agentIri    = `${prefixes.shexruser}${ctx.userId}`;
+        try {
+          hasAclWrite = await aclHasMode(ctx, resourceIri, agentIri, 'Write');
+        } catch (err: any) {
+          console.warn(`[svc-pairing] ACL HasMode lookup failed: ${err?.message ?? err}`);
+        }
+      }
+      if (!unclaimed && !isOwner && !hasAclWrite && !isAdmin) {
+        return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not authorized to edit' });
       }
     }
 
@@ -241,12 +352,29 @@ const deletePairingHandler: grpc.handleUnaryCall<any, any> = async (call, callba
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
       const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
-      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
-        return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
+      const isOwner   = existing.authorId === ctx.userId;
+      const isAdmin   = ctx.role === 'admin';
+      let hasAclWrite = false;
+      if (!unclaimed && !isOwner && !isAdmin) {
+        const resourceIri = `${prefixes.shexrpair}${existing.id}`;
+        const agentIri    = `${prefixes.shexruser}${ctx.userId}`;
+        try {
+          hasAclWrite = await aclHasMode(ctx, resourceIri, agentIri, 'Write');
+        } catch (err: any) {
+          console.warn(`[svc-pairing] ACL HasMode lookup failed: ${err?.message ?? err}`);
+        }
+      }
+      if (!unclaimed && !isOwner && !hasAclWrite && !isAdmin) {
+        return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not authorized to delete' });
       }
     }
 
     await deleteShExMapPairing(sparqlClient, prefixes, call.request.id);
+    // Best-effort cleanup of ACL entries; never roll back the delete on failure.
+    const resourceIri = `${prefixes.shexrpair}${call.request.id}`;
+    aclPurgeResource(ctx, resourceIri).catch((err: any) => {
+      console.warn(`[svc-pairing] ACL purgeResource failed for ${resourceIri}: ${err?.message ?? err}`);
+    });
     callback(null, { success: true });
   } catch (err: any) {
     callback({ code: grpc.status.INTERNAL, message: err.message });
@@ -285,8 +413,20 @@ const savePairingVersionHandler: grpc.handleUnaryCall<any, any> = async (call, c
     if (ctx.authEnabled) {
       if (!ctx.userId) return callback({ code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' });
       const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
-      if (!unclaimed && existing.authorId !== ctx.userId && ctx.role !== 'admin') {
-        return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not the owner' });
+      const isOwner   = existing.authorId === ctx.userId;
+      const isAdmin   = ctx.role === 'admin';
+      let hasAclWrite = false;
+      if (!unclaimed && !isOwner && !isAdmin) {
+        const resourceIri = `${prefixes.shexrpair}${existing.id}`;
+        const agentIri    = `${prefixes.shexruser}${ctx.userId}`;
+        try {
+          hasAclWrite = await aclHasMode(ctx, resourceIri, agentIri, 'Write');
+        } catch (err: any) {
+          console.warn(`[svc-pairing] ACL HasMode lookup failed: ${err?.message ?? err}`);
+        }
+      }
+      if (!unclaimed && !isOwner && !hasAclWrite && !isAdmin) {
+        return callback({ code: grpc.status.PERMISSION_DENIED, message: 'Not authorized to edit' });
       }
     }
 
@@ -304,6 +444,93 @@ const savePairingVersionHandler: grpc.handleUnaryCall<any, any> = async (call, c
   }
 };
 
+// ── ACL management handlers (owner-only) ──────────────────────────────────────
+
+async function checkOwnerForAclManagement(
+  ctx: AuthContext,
+  existing: { authorId?: string },
+): Promise<grpc.ServiceError | null> {
+  if (!ctx.authEnabled) return null;
+  if (!ctx.userId) {
+    return { code: grpc.status.UNAUTHENTICATED, message: 'Authentication required' } as grpc.ServiceError;
+  }
+  const unclaimed = !existing.authorId || existing.authorId === 'anonymous';
+  const isOwner   = existing.authorId === ctx.userId;
+  const isAdmin   = ctx.role === 'admin';
+  if (!unclaimed && !isOwner && !isAdmin) {
+    return { code: grpc.status.PERMISSION_DENIED, message: 'Only the owner may manage access' } as grpc.ServiceError;
+  }
+  return null;
+}
+
+const grantWriteAccessHandler: grpc.handleUnaryCall<any, any> = async (call, callback) => {
+  const ctx = readAuthContext(call.metadata);
+  try {
+    const { pairing_id, agent_user_id } = call.request;
+    if (!pairing_id || !agent_user_id) {
+      return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'pairing_id and agent_user_id are required' });
+    }
+    const existing = await getShExMapPairing(sparqlClient, prefixes, pairing_id);
+    if (!existing) return callback({ code: grpc.status.NOT_FOUND, message: 'Pairing not found' });
+    const authzErr = await checkOwnerForAclManagement(ctx, existing);
+    if (authzErr) return callback(authzErr);
+
+    const resourceIri = `${prefixes.shexrpair}${existing.id}`;
+    const agentIri    = `${prefixes.shexruser}${agent_user_id}`;
+    const { authorizationIri } = await aclGrantMode(ctx, resourceIri, agentIri, 'Write');
+    callback(null, { authorization_iri: authorizationIri });
+  } catch (err: any) {
+    callback({ code: err?.code ?? grpc.status.INTERNAL, message: err?.message ?? 'Grant failed' });
+  }
+};
+
+const revokeWriteAccessHandler: grpc.handleUnaryCall<any, any> = async (call, callback) => {
+  const ctx = readAuthContext(call.metadata);
+  try {
+    const { pairing_id, agent_user_id } = call.request;
+    if (!pairing_id || !agent_user_id) {
+      return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'pairing_id and agent_user_id are required' });
+    }
+    const existing = await getShExMapPairing(sparqlClient, prefixes, pairing_id);
+    if (!existing) return callback({ code: grpc.status.NOT_FOUND, message: 'Pairing not found' });
+    const authzErr = await checkOwnerForAclManagement(ctx, existing);
+    if (authzErr) return callback(authzErr);
+
+    const resourceIri = `${prefixes.shexrpair}${existing.id}`;
+    const agentIri    = `${prefixes.shexruser}${agent_user_id}`;
+    const { deletedCount } = await aclRevokeMode(ctx, resourceIri, agentIri, 'Write');
+    callback(null, { deleted_count: deletedCount });
+  } catch (err: any) {
+    callback({ code: err?.code ?? grpc.status.INTERNAL, message: err?.message ?? 'Revoke failed' });
+  }
+};
+
+const listWriteAccessHandler: grpc.handleUnaryCall<any, any> = async (call, callback) => {
+  const ctx = readAuthContext(call.metadata);
+  try {
+    const { pairing_id } = call.request;
+    if (!pairing_id) {
+      return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'pairing_id is required' });
+    }
+    const existing = await getShExMapPairing(sparqlClient, prefixes, pairing_id);
+    if (!existing) return callback({ code: grpc.status.NOT_FOUND, message: 'Pairing not found' });
+
+    const resourceIri = `${prefixes.shexrpair}${existing.id}`;
+    const items = await aclListAuthorizations(ctx, resourceIri);
+    callback(null, {
+      items: items.map((it) => ({
+        authorization_iri: it.authorizationIri,
+        agent_user_id:     it.agentIri.startsWith(prefixes.shexruser)
+          ? it.agentIri.slice(prefixes.shexruser.length)
+          : it.agentIri,
+        mode:              it.mode,
+      })),
+    });
+  } catch (err: any) {
+    callback({ code: err?.code ?? grpc.status.INTERNAL, message: err?.message ?? 'List failed' });
+  }
+};
+
 // ── Server setup ──────────────────────────────────────────────────────────────
 
 export function createServer(): grpc.Server {
@@ -317,6 +544,9 @@ export function createServer(): grpc.Server {
     ListPairingVersions: listPairingVersionsHandler,
     GetPairingVersion:   getPairingVersionHandler,
     SavePairingVersion:  savePairingVersionHandler,
+    GrantWriteAccess:    grantWriteAccessHandler,
+    RevokeWriteAccess:   revokeWriteAccessHandler,
+    ListWriteAccess:     listWriteAccessHandler,
   });
   return server;
 }

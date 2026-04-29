@@ -154,6 +154,60 @@ const pairingsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // ── ACL: Grant / Revoke / List write access ────────────────────────────────
+
+  fastify.post('/api/v1/pairings/:id/acl/grant', async (request, reply) => {
+    const ctx = fastify.extractAuth(request);
+    if (requiresAuth(request.method) && !ctx.userId) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown> ?? {};
+    const agentUserId = (body['agentUserId'] as string | undefined) ?? '';
+    if (!agentUserId) return reply.code(400).send({ error: 'agentUserId is required' });
+    try {
+      const result = await grpcCall(pairingClient, 'GrantWriteAccess', {
+        pairing_id:    id,
+        agent_user_id: agentUserId,
+      }, buildAuthMeta(ctx));
+      return reply.send(snakeToCamel(result));
+    } catch (err) {
+      return grpcErrorToHttp(reply, err);
+    }
+  });
+
+  fastify.post('/api/v1/pairings/:id/acl/revoke', async (request, reply) => {
+    const ctx = fastify.extractAuth(request);
+    if (requiresAuth(request.method) && !ctx.userId) {
+      return reply.code(401).send({ error: 'Authentication required' });
+    }
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown> ?? {};
+    const agentUserId = (body['agentUserId'] as string | undefined) ?? '';
+    if (!agentUserId) return reply.code(400).send({ error: 'agentUserId is required' });
+    try {
+      const result = await grpcCall(pairingClient, 'RevokeWriteAccess', {
+        pairing_id:    id,
+        agent_user_id: agentUserId,
+      }, buildAuthMeta(ctx));
+      return reply.send(snakeToCamel(result));
+    } catch (err) {
+      return grpcErrorToHttp(reply, err);
+    }
+  });
+
+  fastify.get('/api/v1/pairings/:id/acl', async (request, reply) => {
+    const ctx = fastify.extractAuth(request);
+    const { id } = request.params as { id: string };
+    try {
+      const result = await grpcCall(pairingClient, 'ListWriteAccess', { pairing_id: id }, buildAuthMeta(ctx));
+      const res = result as { items: unknown[] };
+      return reply.send(snakeToCamel(res.items ?? []));
+    } catch (err) {
+      return grpcErrorToHttp(reply, err);
+    }
+  });
+
   fastify.get('/api/v1/pairings/:id/versions/:vn', async (request, reply) => {
     const ctx = fastify.extractAuth(request);
     const { id, vn } = request.params as { id: string; vn: string };

@@ -10,5 +10,6 @@ export const config = {
   qleverUpdateUrl:        opt('QLEVER_UPDATE_URL', 'http://qlever:7001/api/'),
   qleverAccessToken:      opt('QLEVER_ACCESS_TOKEN', ''),
   svcShexmapUrl:          opt('SVC_SHEXMAP_URL', 'svc-shexmap:50052'),
+  svcAclUrl:              opt('SVC_ACL_URL', 'svc-acl:50000'),
   strictMapExistsCheck:   opt('STRICT_MAP_EXISTS_CHECK', 'false') === 'true',
 } as const;

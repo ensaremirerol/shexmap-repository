@@ -92,9 +92,12 @@ services:
       QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-shexmap-dev-token}
       BASE_NAMESPACE: ${BASE_NAMESPACE:-https://w3id.org/shexmap/}
       SVC_SHEXMAP_URL: svc-shexmap:50000
+      SVC_ACL_URL: svc-acl:50000
     depends_on:
       qlever-init:
         condition: service_completed_successfully
+      svc-acl:
+        condition: service_started
     networks:
       - shexmap-svc-net
     restart: unless-stopped
