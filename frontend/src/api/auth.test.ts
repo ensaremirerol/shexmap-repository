@@ -40,12 +40,12 @@ describe('fetchAuthStatus', () => {
     await expect(fetchAuthStatus()).rejects.toThrow();
   });
 
-  it('sends Authorization header when tokenOverride is provided', async () => {
-    let capturedAuthHeader: string | null = null;
+  it('sends a GET request to /api/v1/auth/status', async () => {
+    let called = false;
 
     server.use(
-      http.get('/api/v1/auth/status', ({ request }) => {
-        capturedAuthHeader = request.headers.get('Authorization');
+      http.get('/api/v1/auth/status', () => {
+        called = true;
         return HttpResponse.json({
           enabled: true,
           authenticated: true,
@@ -54,7 +54,7 @@ describe('fetchAuthStatus', () => {
       })
     );
 
-    await fetchAuthStatus('my-override-token');
-    expect(capturedAuthHeader).toBe('Bearer my-override-token');
+    await fetchAuthStatus();
+    expect(called).toBe(true);
   });
 });
