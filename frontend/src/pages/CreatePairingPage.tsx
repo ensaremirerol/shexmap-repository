@@ -37,6 +37,7 @@ import ShExEditor from '../components/editor/ShExEditor.js';
 import { registerShexLanguage } from '../utils/shexLanguage.js';
 import { registerTurtleLanguage, TURTLE_LANGUAGE_ID } from '../utils/turtleLanguage.js';
 import { buildVarColorMap, extractVars } from '../utils/varColors.js';
+import ManageAccessPanel from '../components/acl/ManageAccessPanel.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1490,6 +1491,15 @@ export default function CreatePairingPage() {
             </>
           ) : null}
         </div>
+
+        {/* Manage access */}
+        {editPairingId && (
+          <ManageAccessPanel
+            resourceId={editPairingId}
+            resourceKind="pairing"
+            isOwner={isOwner}
+          />
+        )}
 
         {/* Pairing version history panel */}
         {showPairingHistory && editPairingId && (

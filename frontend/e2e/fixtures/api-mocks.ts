@@ -102,6 +102,40 @@ export async function mockApi(page: Page, opts: MockApiOptions = {}) {
     await route.fulfill({ json: [] });
   });
 
+  // ── /api/v1/shexmaps/:id/acl (List, Grant, Revoke) ────────────────────────
+  await page.route(/\/api\/v1\/shexmaps\/[^/]+\/acl(\/\w+)?$/, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const method = route.request().method();
+    if (method === 'POST') {
+      const sub = path.endsWith('/grant') ? 'grant' : 'revoke';
+      bump(`shexmaps.acl.${sub}`);
+      await route.fulfill({ json: { authorizationIri: '', agentUserId: '', mode: 'Write' } });
+    } else {
+      bump('shexmaps.acl.list');
+      await route.fulfill({ json: [] });
+    }
+  });
+
+  // ── /api/v1/pairings/:id/acl (List, Grant, Revoke) ────────────────────────
+  await page.route(/\/api\/v1\/pairings\/[^/]+\/acl(\/\w+)?$/, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const method = route.request().method();
+    if (method === 'POST') {
+      const sub = path.endsWith('/grant') ? 'grant' : 'revoke';
+      bump(`pairings.acl.${sub}`);
+      await route.fulfill({ json: { authorizationIri: '', agentUserId: '', mode: 'Write' } });
+    } else {
+      bump('pairings.acl.list');
+      await route.fulfill({ json: [] });
+    }
+  });
+
+  // ── /api/v1/pairings/:id/versions ─────────────────────────────────────────
+  await page.route(/\/api\/v1\/pairings\/[^/]+\/versions(\/.+)?(\?.*)?$/, async (route) => {
+    bump('pairings.versions');
+    await route.fulfill({ json: [] });
+  });
+
   // ── User-supplied overrides ────────────────────────────────────────────────
   for (const [pattern, handler] of Object.entries(opts.overrides ?? {})) {
     await page.route(pattern, handler);

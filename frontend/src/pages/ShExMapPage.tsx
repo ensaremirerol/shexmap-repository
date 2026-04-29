@@ -20,6 +20,7 @@ import {
   type ValidationResult,
   type ValidationMode,
 } from '../components/validation/TurtleValidationPanel.js';
+import ManageAccessPanel from '../components/acl/ManageAccessPanel.js';
 
 // ─── Map metadata form ────────────────────────────────────────────────────────
 
@@ -348,6 +349,13 @@ export default function ShExMapPage() {
               map={map}
               onSave={(d) => updateMeta.mutate(d)}
               isSaving={updateMeta.isPending}
+            />
+          )}
+          {isOwner && showMeta && (
+            <ManageAccessPanel
+              resourceId={map.id}
+              resourceKind="shexmap"
+              isOwner={isOwner}
             />
           )}
           {forkError && (
