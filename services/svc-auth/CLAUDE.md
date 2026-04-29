@@ -5,19 +5,42 @@
 
 ## Responsibility
 
-Handle OAuth2 login flows (GitHub, ORCID, Google), issue JWTs, manage API keys, and serve user profile/dashboard queries. This is the **only** service that issues JWTs — all other services only verify them (via svc-gateway, which injects AuthContext into gRPC metadata).
+Handle OAuth2 login flow (currently **GitHub only** — ORCID and Google are intended future providers but not wired), issue JWTs, manage API keys, and serve user profile/dashboard queries. This is the **only** service that issues JWTs — all other services only verify them (via svc-gateway, which injects AuthContext into gRPC metadata).
+
+**Auth-enabled toggle**: there is no `AUTH_ENABLED` env var. Auth is considered enabled iff `OAUTH_GITHUB_CLIENT_ID` is non-empty.
 
 ## HTTP API surface
 
 ```
-GET  /auth/status                 — is auth enabled? is current JWT valid?
-GET  /auth/login?provider=github  — redirect to OAuth provider (auth enabled only)
-GET  /auth/callback               — exchange code, upsert user, issue JWT, redirect SPA
-POST /auth/logout                 — confirm logout (client drops JWT)
+GET  /auth/status                 — is auth enabled? is current JWT valid? returns hydrated user profile from SPARQL
+GET  /auth/login/github           — redirect to GitHub OAuth (auth enabled only)
+GET  /auth/callback?provider=...  — exchange code, upsert user, issue JWT, set httpOnly cookie, redirect to SPA /auth/callback
+POST /auth/logout                 — clears the auth_token cookie server-side
 GET  /users/:userId/dashboard     — user's contributions + starred (auth required)
 GET  /users/:userId/shexmaps      — user's public ShExMap list
 GET  /health
 ```
+
+## Cookie-based JWT delivery
+
+After OAuth callback, the issued JWT is set as an `auth_token` cookie:
+
+```ts
+reply.setCookie('auth_token', token, {
+  httpOnly: true,
+  sameSite: 'lax',
+  path: '/',
+  maxAge: config.jwt.expiry,
+});
+```
+
+The browser sends it automatically on every same-origin request — the SPA never sees the token in JS. svc-gateway reads it (and falls back to `Authorization: Bearer`) when building AuthContext. **Logout** clears the cookie via `reply.clearCookie('auth_token', { path: '/' })`.
+
+`GET /auth/status` hydrates the response with the full user profile (name, email) by looking up `sub` against the SPARQL store via `getUserById` — the JWT itself only carries `sub` and `role`.
+
+## OAuth CSRF state — server-side Map
+
+The original cookie-based CSRF state in `@fastify/oauth2` was unreliable behind nginx + cookies in some environments. svc-auth replaces it with a server-side `pendingStates: Map<string, number>` plus TTL pruning. `generateStateFunction` inserts a random hex token; `checkStateFunction` validates and deletes it. See `src/plugins/oauth.ts`.
 
 ## JWT format
 
@@ -37,16 +60,19 @@ JWT secret: `JWT_SECRET` env var (shared with svc-gateway, which verifies but ne
 ```
 src/
   index.ts
-  config.ts              PORT=50000, JWT_SECRET, JWT_EXPIRY, AUTH_ENABLED,
+  config.ts              PORT=50000, JWT_SECRET, JWT_EXPIRY,
                          OAUTH_CALLBACK_BASE_URL, OAUTH_GITHUB_CLIENT_ID/SECRET,
-                         OAUTH_ORCID_CLIENT_ID/SECRET, OAUTH_GOOGLE_CLIENT_ID/SECRET,
+                         SQLITE_PATH (for API key storage),
                          QLEVER_SPARQL_URL, QLEVER_UPDATE_URL, QLEVER_ACCESS_TOKEN,
                          BASE_NAMESPACE
+                         (no AUTH_ENABLED — auth is on iff OAUTH_GITHUB_CLIENT_ID is set;
+                          ORCID/Google providers are not currently wired)
   server.ts              Fastify HTTP server (NOT gRPC)
   sparql.ts
   plugins/
     jwt.ts               @fastify/jwt registration; exposes fastify.signToken(payload)
-    oauth.ts             @fastify/oauth2 for each provider (conditional on AUTH_ENABLED)
+    oauth.ts             @fastify/oauth2 (GitHub) + server-side state Map for CSRF protection
+    cookie.ts            @fastify/cookie registration (must be registered BEFORE oauth.ts)
   routes/
     auth.ts              /auth/* routes
     users.ts             /users/* routes
@@ -92,6 +118,7 @@ INSERT DATA {
   "fastify-plugin": "^5.0.0",
   "@fastify/jwt": "^9.0.0",
   "@fastify/oauth2": "^8.0.0",
+  "@fastify/cookie": "^11.0.0",
   "@fastify/cors": "^11.0.0",
   "@fastify/sensible": "^6.0.0",
   "@shexmap/shared": "*",
@@ -100,6 +127,8 @@ INSERT DATA {
   "dotenv": "^16.0.0"
 }
 ```
+
+**Plugin registration order matters**: `@fastify/cookie` must be registered before `@fastify/oauth2`, otherwise OAuth's cookie-based fallback paths fail at startup.
 
 
 ---

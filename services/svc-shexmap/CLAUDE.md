@@ -31,9 +31,11 @@ Read from gRPC metadata (`x-auth-user-id`, `x-auth-role`, `x-auth-enabled`). Rul
 |-----------|------|
 | List / Get | Always allowed (public) |
 | Create | Requires `authEnabled=false` OR non-empty `userId` |
-| Update | Requires ownership: `map.authorId === ctx.userId` OR `role === 'admin'` |
-| Delete | Requires ownership: `map.authorId === ctx.userId` OR `role === 'admin'` |
+| Update | Requires ownership: `map.authorId === ctx.userId` OR `role === 'admin'` OR map is unclaimed |
+| Delete | Requires ownership: `map.authorId === ctx.userId` OR `role === 'admin'` OR map is unclaimed |
 | SaveVersion | Requires ownership (same as Update) |
+
+A map is **unclaimed** when its `authorId` is empty or equal to `'anonymous'` — i.e. created before auth was enabled. Any authenticated user may edit/delete/version an unclaimed map (they effectively claim it on first edit). The frontend mirrors this rule when deciding whether to render Edit-vs-Fork UI on `/maps/:id`.
 
 Return `grpc.status.UNAUTHENTICATED` (code 16) when auth required but no user. Return `grpc.status.PERMISSION_DENIED` (code 7) when user is not the owner.
 

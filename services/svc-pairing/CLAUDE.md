@@ -1,6 +1,6 @@
 # svc-pairing — ShExMap Pairing CRUD + Versioning
 
-**Protocol:** gRPC (port 50000)
+**Protocol:** gRPC (port 50000 — uniform internal port across all backend services)
 **Dependencies:** QLever (SPARQL), svc-shexmap (optional existence check via gRPC)
 
 ## Responsibility
@@ -32,14 +32,14 @@ Same pattern as svc-shexmap:
 |-----------|------|
 | List / Get | Public |
 | Create | Requires authenticated user when `authEnabled=true` |
-| Update / Delete / SaveVersion | Owner or admin |
+| Update / Delete / SaveVersion | Owner or admin — **OR** any authenticated user when the existing pairing is "unclaimed" (`authorId` empty or `'anonymous'`). This handles legacy data created before auth was enabled. |
 
 ## Directory layout to create
 
 ```
 src/
   index.ts
-  config.ts              PORT=500, QLEVER_*, BASE_NAMESPACE,
+  config.ts              PORT=50000, QLEVER_*, BASE_NAMESPACE,
                          SVC_SHEXMAP_URL (gRPC address for existence check),
                          STRICT_MAP_EXISTS_CHECK=true/false
   server.ts

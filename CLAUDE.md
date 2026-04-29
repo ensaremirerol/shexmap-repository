@@ -18,7 +18,7 @@ This repository is being migrated from a **monolith** (`api/`) to a **microservi
 | Backend (legacy) | Node.js with Fastify (`api/`) — reference only |
 | Triplestore / SPARQL | QLever (`docker/qlever/`) |
 | Frontend | React SPA with Vite (`frontend/`) |
-| Auth | Optional — OAuth2/OIDC + API keys (`AUTH_ENABLED` env var) |
+| Auth | Optional — GitHub OAuth2 + httpOnly cookie JWT (auto-enabled when `OAUTH_GITHUB_CLIENT_ID` is set) |
 | Deployment | Docker + Docker Compose |
 | Inter-service | gRPC (`@grpc/grpc-js` + `@grpc/proto-loader`) for compute/data services |
 | ShEx processing | `@shexjs/parser`, `@shexjs/core` |
@@ -31,15 +31,19 @@ This repository is being migrated from a **monolith** (`api/`) to a **microservi
 cp .env.example .env
 docker compose up --build
 
-# Run individual services in dev mode
-cd services/svc-validate && npm install && npm run dev   # gRPC :50051
-cd services/svc-gateway  && npm install && npm run dev   # HTTP  :3000
+# Run individual services in dev mode (every backend service binds :50000 internally)
+cd services/svc-validate && npm install && npm run dev
+cd services/svc-gateway  && npm install && npm run dev
 
 # Run frontend dev server
 cd frontend && npm install && npm run dev
 
 # Run tests for a service
 cd services/svc-validate && npm test
+
+# Frontend e2e (Playwright, mocked API)
+cd frontend && npm run test:e2e          # headless
+cd frontend && npm run test:e2e:ui       # interactive UI mode
 
 # Force full QLever index rebuild (wipes volume, rebuilds from sparql/seed/ + ontology)
 ./scripts/rebuild-index.sh
@@ -54,51 +58,55 @@ cd services/svc-validate && npm test
 
 ## Architecture — Microservices
 
-All services communicate over the private `shexmap-net` Docker bridge network. Only `svc-gateway` is exposed to the host (via nginx on port 80).
+All services communicate over the private `shexmap-svc-net` Docker bridge network. Every backend service listens internally on **port 50000** — uniform inside Docker, distinguished by service hostname (set via `SVC_*_ADDR` env vars on the gateway). Only nginx is exposed to the host (mapped `8090:80`).
 
 ```
 Browser
-  └── nginx:80
-        ├── /api/*   → svc-gateway:3000  (HTTP — JWT verify + gRPC fan-out)
-        ├── /sparql  → svc-gateway:3000  (proxied to svc-sparql-proxy)
-        └── /*       → static            (React SPA)
+  └── nginx (host :8090 → :80)
+        ├── /api/*   → svc-gateway:50000  (HTTP — JWT verify + gRPC fan-out)
+        ├── /sparql  → svc-gateway:50000  (proxied to svc-sparql-proxy)
+        └── /*       → static             (React SPA)
 
-svc-gateway:3000 (HTTP in, gRPC out)
-  ├── POST /api/v1/validate    → svc-validate:50051     (gRPC)
-  ├── /api/v1/shexmaps/*       → svc-shexmap:50052      (gRPC)
-  ├── /api/v1/pairings/*       → svc-pairing:50053      (gRPC)
-  ├── /api/v1/coverage/*       → svc-coverage:50054     (gRPC)
-  ├── /api/v1/schemas          → svc-schema:50055       (gRPC)
-  ├── /api/v1/auth/*           → svc-auth:3006          (HTTP — OAuth2 callbacks need HTTP)
-  ├── /api/v1/users/*          → svc-auth:3006          (HTTP)
-  └── /sparql                  → svc-sparql-proxy:3007  (HTTP — SPARQL protocol is HTTP)
+svc-gateway:50000 (HTTP in, gRPC out)
+  ├── POST /api/v1/validate    → svc-validate:50000      (gRPC)
+  ├── /api/v1/shexmaps/*       → svc-shexmap:50000       (gRPC)
+  ├── /api/v1/pairings/*       → svc-pairing:50000       (gRPC)
+  ├── /api/v1/coverage/*       → svc-coverage:50000      (gRPC)
+  ├── /api/v1/schemas          → svc-schema:50000        (gRPC)
+  ├── /api/v1/auth/*           → svc-auth:50000          (HTTP — OAuth2 callbacks need HTTP)
+  ├── /api/v1/users/*          → svc-auth:50000          (HTTP)
+  └── /sparql                  → svc-sparql-proxy:50000  (HTTP — SPARQL protocol is HTTP)
 
 All gRPC services → qlever:7001 (SPARQL SELECT/UPDATE)
 svc-validate      → no external deps (pure CPU)
-svc-shexmap       → svc-validate:50051 (ShEx content validation on create)
+svc-shexmap       → svc-validate:50000 (ShEx content validation on create)
 ```
 
 ### Services at a glance
 
-| Service | Port | Protocol | CLAUDE.md |
-|---------|------|----------|-----------|
+All services bind to internal port **50000**. The public ingress is nginx on host port **8090**.
+
+| Service | Internal port | Protocol | CLAUDE.md |
+|---------|---------------|----------|-----------|
 | `services/shared` | — | npm workspace pkg | [CLAUDE.md](services/shared/CLAUDE.md) |
-| `services/svc-validate` | 50051 | gRPC | [CLAUDE.md](services/svc-validate/CLAUDE.md) |
-| `services/svc-shexmap` | 50052 | gRPC | [CLAUDE.md](services/svc-shexmap/CLAUDE.md) |
-| `services/svc-pairing` | 50053 | gRPC | [CLAUDE.md](services/svc-pairing/CLAUDE.md) |
-| `services/svc-coverage` | 50054 | gRPC | [CLAUDE.md](services/svc-coverage/CLAUDE.md) |
-| `services/svc-schema` | 50055 | gRPC | [CLAUDE.md](services/svc-schema/CLAUDE.md) |
-| `services/svc-auth` | 3006 | HTTP | [CLAUDE.md](services/svc-auth/CLAUDE.md) |
-| `services/svc-sparql-proxy` | 3007 | HTTP | [CLAUDE.md](services/svc-sparql-proxy/CLAUDE.md) |
-| `services/svc-gateway` | 3000 | HTTP | [CLAUDE.md](services/svc-gateway/CLAUDE.md) |
+| `services/svc-validate` | 50000 | gRPC | [CLAUDE.md](services/svc-validate/CLAUDE.md) |
+| `services/svc-shexmap` | 50000 | gRPC | [CLAUDE.md](services/svc-shexmap/CLAUDE.md) |
+| `services/svc-pairing` | 50000 | gRPC | [CLAUDE.md](services/svc-pairing/CLAUDE.md) |
+| `services/svc-coverage` | 50000 | gRPC | [CLAUDE.md](services/svc-coverage/CLAUDE.md) |
+| `services/svc-schema` | 50000 | gRPC | [CLAUDE.md](services/svc-schema/CLAUDE.md) |
+| `services/svc-auth` | 50000 | HTTP | [CLAUDE.md](services/svc-auth/CLAUDE.md) |
+| `services/svc-sparql-proxy` | 50000 | HTTP | [CLAUDE.md](services/svc-sparql-proxy/CLAUDE.md) |
+| `services/svc-gateway` | 50000 | HTTP | [CLAUDE.md](services/svc-gateway/CLAUDE.md) |
 
 ### AuthContext flow
 
 The gateway verifies the JWT **once** and injects `AuthContext` as gRPC metadata into every downstream call. Backend services never handle JWTs directly — they read trusted metadata.
 
+The JWT is delivered as an `auth_token` httpOnly cookie set by svc-auth on OAuth callback. The gateway accepts the cookie OR an `Authorization: Bearer <token>` header (cookie used as fallback when no Bearer header). When proxying `/api/v1/auth/*` to svc-auth (which uses `@fastify/jwt` itself), the gateway also injects `Authorization: Bearer` from the cookie so `request.jwtVerify()` works upstream.
+
 ```
-JWT (Bearer header)
-  └── svc-gateway: @fastify/jwt verify → AuthContext
+auth_token cookie (httpOnly, SameSite=Lax)  ── or ──  Authorization: Bearer <jwt>
+  └── svc-gateway: extractAuth() → AuthContext
         ├── x-auth-user-id    (string, empty = anonymous)
         ├── x-auth-role       ("anonymous" | "user" | "admin")
         └── x-auth-enabled    ("true" | "false")
@@ -107,6 +115,8 @@ JWT (Bearer header)
 
 **Coarse AuthZ** (gateway): anonymous user hitting a write endpoint → HTTP 401.
 **Fine AuthZ** (each service): authenticated user not owning the resource → gRPC PERMISSION_DENIED → HTTP 403.
+
+**Anonymous-claim rule** (svc-shexmap, svc-pairing): if a resource's `authorId` is empty or `'anonymous'` (i.e. created before auth was turned on), any authenticated user may edit/delete/version it. The frontend mirrors this rule when rendering Edit-vs-Fork UI. This avoids a destructive migration of legacy data when auth is enabled later.
 
 ### Proto contracts
 
@@ -136,7 +146,8 @@ Install all: `npm install` at root. Install single service: `npm install --works
 - [api/src/services/](api/src/services/) — business logic (shexmap CRUD, ShEx validation, SPARQL helpers, coverage)
 - [api/src/rdf/](api/src/rdf/) — RDF prefix map and SPARQL query helpers
 - [frontend/src/api/](frontend/src/api/) — typed React Query hooks for all API endpoints
-- [frontend/src/store/authStore.ts](frontend/src/store/authStore.ts) — Zustand auth state (persisted to localStorage)
+- [frontend/src/store/authStore.ts](frontend/src/store/authStore.ts) — Zustand auth state (in-memory; the JWT lives in the httpOnly `auth_token` cookie, not in localStorage)
+- [frontend/e2e/](frontend/e2e/) — Playwright e2e tests with mocked `/api/v1/*` routes; covers ownership UI, fork flow, schemas-tab regression. Run with `npm run test:e2e` from `frontend/`.
 - [frontend/src/pages/CreatePairingPage.tsx](frontend/src/pages/CreatePairingPage.tsx) — full pairing create/edit workflow (see below)
 - [frontend/src/components/graph/](frontend/src/components/graph/) — ReactFlow mapping visualisation
 - [frontend/src/components/coverage/](frontend/src/components/coverage/) — Recharts coverage heatmap
@@ -184,10 +195,9 @@ Core IRI patterns:
 
 ### Authentication
 
-Auth is entirely behind the `AUTH_ENABLED` environment variable (default: `false`).
-When disabled, `requireAuth` preHandlers are no-ops and the platform is fully public read+write.
-When enabled, the API supports JWT (Bearer token) and API keys (`X-API-Key` header).
-OAuth providers: GitHub, ORCID, Google (wired via `@fastify/oauth2`).
+Auth is auto-enabled when `OAUTH_GITHUB_CLIENT_ID` is present in svc-auth's environment; otherwise the platform is fully public read+write.
+The session token is a JWT delivered via an httpOnly `auth_token` cookie (set by svc-auth on OAuth callback, cleared on `POST /auth/logout`). Bearer-header tokens are also accepted as a fallback.
+**OAuth providers: GitHub only.** ORCID and Google are *not* currently wired up in svc-auth (they're listed in the original CLAUDE.md as future targets but have no implementation yet).
 
 ### QLever Notes
 

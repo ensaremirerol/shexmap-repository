@@ -46,6 +46,23 @@ import jwt from '@fastify/jwt';
 
 `svc-gateway` **verifies** but never **issues** JWTs. JWT issuance is svc-auth's job.
 
+### Token sources accepted by `extractAuth`
+
+The gateway accepts the JWT from either of these sources (cookie used as fallback when no Bearer header):
+
+1. `Authorization: Bearer <jwt>` header
+2. `auth_token` cookie (httpOnly, set by svc-auth on OAuth callback)
+
+```ts
+const cookieHeader = (request.headers['cookie'] as string) ?? '';
+const match = cookieHeader.match(/(?:^|;\s*)auth_token=([^;]+)/);
+rawToken = bearer ?? match?.[1];
+```
+
+### Cookie → Bearer injection when proxying to svc-auth
+
+The `/api/v1/auth/*` and `/api/v1/users/*` routes proxy to svc-auth via `undici.request()`. svc-auth uses `@fastify/jwt` and calls `request.jwtVerify()`, which only reads the `Authorization` header. So before forwarding, the gateway extracts the JWT from the `auth_token` cookie and synthesises an `Authorization: Bearer` header. It also forwards `Set-Cookie` from svc-auth back to the browser (so login/logout cookie writes propagate).
+
 ## gRPC client setup
 
 ```ts
