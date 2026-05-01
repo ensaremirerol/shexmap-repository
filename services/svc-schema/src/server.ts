@@ -1,15 +1,11 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { sparqlClient, prefixes } from './sparql.js';
 import { listSchemas } from './services/schema.service.js';
+import { PROTO_FILES } from '@shexmap/shared';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = join(__dirname, '..', 'proto', 'schema.proto');
-
-const packageDef = protoLoader.loadSync(PROTO_PATH, {
+const packageDef = protoLoader.loadSync(PROTO_FILES.schema, {
   keepCase: true,
   longs: String,
   enums: String,

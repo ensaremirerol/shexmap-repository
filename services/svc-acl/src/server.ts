@@ -1,6 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { join } from 'path';
 import { config } from './config.js';
 import { sparqlClient, prefixes } from './sparql.js';
 import {
@@ -13,11 +12,9 @@ import {
   revokeMode,
 } from './services/acl.service.js';
 import type { AuthContext } from '@shexmap/shared';
-import { AUTH_META, PROTO_DIR } from '@shexmap/shared';
+import { AUTH_META, PROTO_FILES } from '@shexmap/shared';
 
-const PROTO_PATH = join(PROTO_DIR, 'acl.proto');
-
-const packageDef = protoLoader.loadSync(PROTO_PATH, {
+const packageDef = protoLoader.loadSync(PROTO_FILES.acl, {
   keepCase: true,
   longs: String,
   enums: String,

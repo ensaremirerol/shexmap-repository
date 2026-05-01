@@ -1,6 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { join } from 'path';
 import { config } from './config.js';
 import { sparqlClient, prefixes } from './sparql.js';
 import {
@@ -16,12 +15,10 @@ import {
   getVersionContent,
   saveNewVersion,
 } from './services/version.service.js';
-import { AUTH_META, PROTO_DIR } from '@shexmap/shared';
+import { AUTH_META, PROTO_FILES } from '@shexmap/shared';
 import type { AuthContext } from '@shexmap/shared';
 
-const PROTO_PATH = join(PROTO_DIR, 'shexmap.proto');
-
-const packageDef = protoLoader.loadSync(PROTO_PATH, {
+const packageDef = protoLoader.loadSync(PROTO_FILES.shexmap, {
   keepCase: true,
   longs: String,
   enums: String,
@@ -39,8 +36,7 @@ let validateClient: any = null;
 function getValidateClient(): any {
   if (validateClient) return validateClient;
   if (!validateProto) {
-    const VALIDATE_PROTO = join(PROTO_DIR, 'validate.proto');
-    const vDef = protoLoader.loadSync(VALIDATE_PROTO, {
+    const vDef = protoLoader.loadSync(PROTO_FILES.validate, {
       keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
     });
     validateProto = grpc.loadPackageDefinition(vDef) as any;
@@ -73,8 +69,7 @@ let aclClient: any = null;
 export function getAclClient(): any {
   if (aclClient) return aclClient;
   if (!aclProto) {
-    const ACL_PROTO = join(PROTO_DIR, 'acl.proto');
-    const aDef = protoLoader.loadSync(ACL_PROTO, {
+    const aDef = protoLoader.loadSync(PROTO_FILES.acl, {
       keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
     });
     aclProto = grpc.loadPackageDefinition(aDef) as any;

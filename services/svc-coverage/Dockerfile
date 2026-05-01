@@ -17,7 +17,7 @@ RUN npm run build --workspace=@shexmap/shared
 
 COPY svc-coverage/src/          ./svc-coverage/src/
 COPY svc-coverage/tsconfig.json  ./svc-coverage/tsconfig.json
-COPY shared/proto/              ./svc-coverage/proto/
+COPY shared/proto/              ./shared/proto/
 
 WORKDIR /app/svc-coverage
 EXPOSE 50000
@@ -40,7 +40,7 @@ RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-coverage --
 
 COPY --from=builder /app/shared/dist       ./shared/dist/
 COPY --from=builder /app/svc-coverage/dist ./svc-coverage/dist/
-COPY shared/proto/                         ./svc-coverage/proto/
+COPY shared/proto/                         ./shared/proto/
 
 WORKDIR /app/svc-coverage
 EXPOSE 50000

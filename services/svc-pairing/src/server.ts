@@ -1,6 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { join } from 'path';
 import { config } from './config.js';
 import { sparqlClient, prefixes } from './sparql.js';
 import {
@@ -15,13 +14,10 @@ import {
   getPairingVersion,
   savePairingVersion,
 } from './services/pairing-version.service.js';
-import { AUTH_META, PROTO_DIR } from '@shexmap/shared';
+import { AUTH_META, PROTO_DIR, PROTO_FILES } from '@shexmap/shared';
 import type { AuthContext } from '@shexmap/shared';
 
-const PROTO_PATH         = join(PROTO_DIR, 'pairing.proto');
-const SHEXMAP_PROTO_PATH = join(PROTO_DIR, 'shexmap.proto');
-
-const packageDef = protoLoader.loadSync(PROTO_PATH, {
+const packageDef = protoLoader.loadSync(PROTO_FILES.pairing, {
   keepCase: true,
   longs: String,
   enums: String,
@@ -40,7 +36,7 @@ let shexmapClient: any = null;
 function getShexmapClient(): any {
   if (shexmapClient) return shexmapClient;
   if (!shexmapProto) {
-    const def = protoLoader.loadSync(SHEXMAP_PROTO_PATH, {
+    const def = protoLoader.loadSync(PROTO_FILES.shexmap, {
       keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
     });
     shexmapProto = grpc.loadPackageDefinition(def) as any;
@@ -70,8 +66,7 @@ let aclClient: any = null;
 export function getAclClient(): any {
   if (aclClient) return aclClient;
   if (!aclProto) {
-    const ACL_PROTO = join(PROTO_DIR, 'acl.proto');
-    const aDef = protoLoader.loadSync(ACL_PROTO, {
+    const aDef = protoLoader.loadSync(PROTO_FILES.acl, {
       keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
     });
     aclProto = grpc.loadPackageDefinition(aDef) as any;

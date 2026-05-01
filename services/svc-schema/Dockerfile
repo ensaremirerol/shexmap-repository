@@ -17,7 +17,7 @@ RUN npm run build --workspace=@shexmap/shared
 
 COPY svc-schema/src/          ./svc-schema/src/
 COPY svc-schema/tsconfig.json  ./svc-schema/tsconfig.json
-COPY shared/proto/            ./svc-schema/proto/
+COPY shared/proto/            ./shared/proto/
 
 WORKDIR /app/svc-schema
 EXPOSE 50000
@@ -40,7 +40,7 @@ RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-schema --om
 
 COPY --from=builder /app/shared/dist     ./shared/dist/
 COPY --from=builder /app/svc-schema/dist ./svc-schema/dist/
-COPY shared/proto/                       ./svc-schema/proto/
+COPY shared/proto/                       ./shared/proto/
 
 WORKDIR /app/svc-schema
 EXPOSE 50000
