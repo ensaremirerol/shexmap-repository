@@ -17,7 +17,7 @@ import type { AuthContext } from '@shexmap/shared';
 import { AUTH_META } from '@shexmap/shared';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = join(__dirname, '..', 'proto', 'acl.proto');
+const PROTO_PATH = join(__dirname, '..', '..', 'shared', 'proto', 'acl.proto');
 
 const packageDef = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,

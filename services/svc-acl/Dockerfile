@@ -17,7 +17,7 @@ RUN npm run build --workspace=@shexmap/shared
 
 COPY svc-acl/src/          ./svc-acl/src/
 COPY svc-acl/tsconfig.json ./svc-acl/tsconfig.json
-COPY shared/proto/         ./svc-acl/proto/
+COPY shared/proto/         ./shared/proto/
 
 WORKDIR /app/svc-acl
 EXPOSE 50000
@@ -40,7 +40,7 @@ RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-acl --omit=
 
 COPY --from=builder /app/shared/dist  ./shared/dist/
 COPY --from=builder /app/svc-acl/dist ./svc-acl/dist/
-COPY shared/proto/                    ./svc-acl/proto/
+COPY shared/proto/                    ./shared/proto/
 
 WORKDIR /app/svc-acl
 EXPOSE 50000

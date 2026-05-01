@@ -17,7 +17,7 @@ RUN npm run build --workspace=@shexmap/shared
 
 COPY svc-pairing/src/          ./svc-pairing/src/
 COPY svc-pairing/tsconfig.json  ./svc-pairing/tsconfig.json
-COPY shared/proto/             ./svc-pairing/proto/
+COPY shared/proto/             ./shared/proto/
 
 WORKDIR /app/svc-pairing
 EXPOSE 50000
@@ -40,7 +40,7 @@ RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-pairing --o
 
 COPY --from=builder /app/shared/dist      ./shared/dist/
 COPY --from=builder /app/svc-pairing/dist ./svc-pairing/dist/
-COPY shared/proto/                        ./svc-pairing/proto/
+COPY shared/proto/                        ./shared/proto/
 
 WORKDIR /app/svc-pairing
 EXPOSE 50000
