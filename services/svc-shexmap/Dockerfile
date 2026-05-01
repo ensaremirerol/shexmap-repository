@@ -17,7 +17,7 @@ RUN npm run build --workspace=@shexmap/shared
 
 COPY svc-shexmap/src/          ./svc-shexmap/src/
 COPY svc-shexmap/tsconfig.json  ./svc-shexmap/tsconfig.json
-COPY shared/proto/             ./svc-shexmap/proto/
+COPY shared/proto/             ./shared/proto/
 
 WORKDIR /app/svc-shexmap
 EXPOSE 50000

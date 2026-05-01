@@ -21,7 +21,7 @@ import type { AuthContext } from '@shexmap/shared';
 import { AUTH_META } from '@shexmap/shared';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = join(__dirname, '..', 'proto', 'shexmap.proto');
+const PROTO_PATH = join(__dirname, '..', '..', 'shared', 'proto', 'shexmap.proto');
 
 const packageDef = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
@@ -41,7 +41,7 @@ let validateClient: any = null;
 function getValidateClient(): any {
   if (validateClient) return validateClient;
   if (!validateProto) {
-    const VALIDATE_PROTO = join(__dirname, '..', 'proto', 'validate.proto');
+    const VALIDATE_PROTO = join(__dirname, '..', '..', 'shared', 'proto', 'validate.proto');
     const vDef = protoLoader.loadSync(VALIDATE_PROTO, {
       keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
     });
@@ -75,7 +75,7 @@ let aclClient: any = null;
 export function getAclClient(): any {
   if (aclClient) return aclClient;
   if (!aclProto) {
-    const ACL_PROTO = join(__dirname, '..', 'proto', 'acl.proto');
+    const ACL_PROTO = join(__dirname, '..', '..', 'shared', 'proto', 'acl.proto');
     const aDef = protoLoader.loadSync(ACL_PROTO, {
       keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
     });
