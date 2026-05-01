@@ -80,6 +80,8 @@ svc-gateway:50000 (HTTP in, gRPC out)
 All gRPC services → qlever:7001 (SPARQL SELECT/UPDATE)
 svc-validate      → no external deps (pure CPU)
 svc-shexmap       → svc-validate:50000 (ShEx content validation on create)
+svc-shexmap       → svc-acl:50000      (AuthZ checks + Grant/Revoke/List RPCs)
+svc-pairing       → svc-acl:50000      (AuthZ checks + Grant/Revoke/List RPCs)
 ```
 
 ### Services at a glance
@@ -94,6 +96,7 @@ All services bind to internal port **50000**. The public ingress is nginx on hos
 | `services/svc-pairing` | 50000 | gRPC | [CLAUDE.md](services/svc-pairing/CLAUDE.md) |
 | `services/svc-coverage` | 50000 | gRPC | [CLAUDE.md](services/svc-coverage/CLAUDE.md) |
 | `services/svc-schema` | 50000 | gRPC | [CLAUDE.md](services/svc-schema/CLAUDE.md) |
+| `services/svc-acl` | 50000 | gRPC | [CLAUDE.md](services/svc-acl/CLAUDE.md) |
 | `services/svc-auth` | 50000 | HTTP | [CLAUDE.md](services/svc-auth/CLAUDE.md) |
 | `services/svc-sparql-proxy` | 50000 | HTTP | [CLAUDE.md](services/svc-sparql-proxy/CLAUDE.md) |
 | `services/svc-gateway` | 50000 | HTTP | [CLAUDE.md](services/svc-gateway/CLAUDE.md) |
@@ -114,7 +117,9 @@ auth_token cookie (httpOnly, SameSite=Lax)  ── or ──  Authorization: Bea
 ```
 
 **Coarse AuthZ** (gateway): anonymous user hitting a write endpoint → HTTP 401.
-**Fine AuthZ** (each service): authenticated user not owning the resource → gRPC PERMISSION_DENIED → HTTP 403.
+**Fine AuthZ** (each service): authenticated user not owning the resource → gRPC PERMISSION_DENIED → HTTP 403. svc-shexmap and svc-pairing also consult **svc-acl** (`HasMode` RPC) to allow non-owners who have been explicitly granted `acl:Write` access to edit/delete/version resources.
+
+**ACL model** (svc-acl): W3C WAC `acl:Authorization` triples stored in a dedicated named graph `<https://w3id.org/shexmap/acl>` in QLever. Owners call `GrantWriteAccess`/`RevokeWriteAccess`/`ListWriteAccess` RPCs (exposed via `POST /api/v1/{shexmaps,pairings}/:id/acl/grant`, `/revoke`, `GET .../acl`). `acl:Write` grants let collaborators edit but do **not** allow them to manage access — only the owner can grant/revoke.
 
 **Anonymous-claim rule** (svc-shexmap, svc-pairing): if a resource's `authorId` is empty or `'anonymous'` (i.e. created before auth was turned on), any authenticated user may edit/delete/version it. The frontend mirrors this rule when rendering Edit-vs-Fork UI. This avoids a destructive migration of legacy data when auth is enabled later.
 
