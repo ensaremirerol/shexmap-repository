@@ -42,7 +42,7 @@ describe('GET /api/v1/shexmaps', () => {
 
   beforeAll(async () => {
     vi.resetModules();
-    process.env['AUTH_ENABLED'] = 'false';
+    delete process.env['OAUTH_GITHUB_CLIENT_ID'];
     process.env['JWT_SECRET'] = 'test-secret-at-least-32-characters-long!!';
 
     vi.mock('../src/grpc/clients.js', () => ({
@@ -150,7 +150,7 @@ describe('POST /api/v1/shexmaps — auth enabled', () => {
 
   beforeAll(async () => {
     vi.resetModules();
-    process.env['AUTH_ENABLED'] = 'true';
+    process.env['OAUTH_GITHUB_CLIENT_ID'] = 'test-client-id';
     process.env['JWT_SECRET'] = 'test-secret-at-least-32-characters-long!!';
 
     vi.mock('../src/grpc/clients.js', () => ({
@@ -172,7 +172,7 @@ describe('POST /api/v1/shexmaps — auth enabled', () => {
 
   afterAll(async () => {
     await app.close();
-    process.env['AUTH_ENABLED'] = 'false';
+    delete process.env['OAUTH_GITHUB_CLIENT_ID'];
   });
 
   it('returns 401 when auth enabled and no JWT token', async () => {
