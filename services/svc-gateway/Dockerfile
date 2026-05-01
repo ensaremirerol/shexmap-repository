@@ -17,7 +17,7 @@ RUN npm run build --workspace=@shexmap/shared
 
 COPY svc-gateway/src/         ./svc-gateway/src/
 COPY svc-gateway/tsconfig.json ./svc-gateway/tsconfig.json
-COPY shared/proto/            ./svc-gateway/proto/
+COPY shared/proto/            ./shared/proto/
 
 WORKDIR /app/svc-gateway
 EXPOSE 50000
@@ -40,7 +40,7 @@ RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-gateway --o
 
 COPY --from=builder /app/shared/dist      ./shared/dist/
 COPY --from=builder /app/svc-gateway/dist ./svc-gateway/dist/
-COPY shared/proto/                        ./svc-gateway/proto/
+COPY shared/proto/                        ./shared/proto/
 
 WORKDIR /app/svc-gateway
 EXPOSE 50000

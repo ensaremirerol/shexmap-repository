@@ -1,11 +1,8 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { config } from '../config.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROTO_DIR = join(__dirname, '..', '..', 'proto');
+import { PROTO_DIR } from '@shexmap/shared';
 
 const LOADER_OPTS: protoLoader.Options = {
   keepCase: true,

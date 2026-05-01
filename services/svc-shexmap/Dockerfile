@@ -40,7 +40,7 @@ RUN npm install --workspace=@shexmap/shared --workspace=@shexmap/svc-shexmap --o
 
 COPY --from=builder /app/shared/dist      ./shared/dist/
 COPY --from=builder /app/svc-shexmap/dist ./svc-shexmap/dist/
-COPY shared/proto/                        ./svc-shexmap/proto/
+COPY shared/proto/                        ./shared/proto/
 
 WORKDIR /app/svc-shexmap
 EXPOSE 50000
